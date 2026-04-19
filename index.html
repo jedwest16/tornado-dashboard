@@ -3,22 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chase Dashboard — St. Charles MO</title>
+    <title>Storm Chase HQ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
+        :root {
+            --bg:       #06060f;
+            --bg2:      #0b0b18;
+            --bg3:      #111124;
+            --glass:    rgba(255,255,255,0.03);
+            --border:   rgba(255,255,255,0.07);
+            --blue:     #4a90d9;
+            --blue-dim: #1e3a5f;
+            --purple:   #9d44ff;
+            --red:      #ff3b3b;
+            --orange:   #ff8c00;
+            --yellow:   #ffd600;
+            --green:    #00c853;
+            --text:     #e8e8f0;
+            --dim:      #7a7a9a;
+            --mute:     #3a3a58;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
         body {
-            background: #090910;
-            color: #e0e0e0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             font-size: 14px;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* ---- HEADER ---- */
+        /* ── HEADER ── */
         .header {
-            background: #10101a;
-            border-bottom: 2px solid #1e3a5f;
+            background: rgba(6,6,15,0.96);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
             padding: 12px 16px;
             display: flex;
             justify-content: space-between;
@@ -27,717 +49,988 @@
             top: 0;
             z-index: 1100;
         }
-        .header-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 1px;
+        .header-left { display:flex; align-items:center; gap:10px; }
+        .header-logo {
+            width:38px; height:38px;
+            background: linear-gradient(135deg,#1a2a50,#2a5090);
+            border-radius:11px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:20px; flex-shrink:0;
+            box-shadow: 0 0 18px rgba(74,144,217,0.25);
         }
-        .header-sub { font-size: 11px; color: #777; margin-top: 2px; }
+        .header-title { font-size:16px; font-weight:800; color:#fff; letter-spacing:0.3px; line-height:1.2; }
+        .header-loc { font-size:11px; color:var(--dim); display:flex; align-items:center; gap:5px; margin-top:2px; }
+        .loc-dot { width:6px; height:6px; background:var(--green); border-radius:50%; box-shadow:0 0 8px var(--green); flex-shrink:0; }
+        .header-right { text-align:right; }
+        .alert-badge {
+            display:inline-flex; align-items:center; gap:4px;
+            padding:4px 10px; border-radius:20px;
+            font-size:11px; font-weight:700; letter-spacing:0.3px;
+            background:rgba(255,59,59,0.12); border:1px solid rgba(255,59,59,0.25); color:var(--red);
+        }
+        .alert-badge.clear { background:rgba(0,200,83,0.1); border-color:rgba(0,200,83,0.2); color:var(--green); }
+        .clock { font-size:11px; color:var(--mute); margin-top:5px; font-variant-numeric:tabular-nums; }
 
-        /* ---- ALERT BANNER ---- */
+        /* ── GPS BAR ── */
+        .gps-bar {
+            display:flex; align-items:center; justify-content:center; gap:8px;
+            padding:10px 16px;
+            background:rgba(74,144,217,0.05);
+            border-bottom:1px solid rgba(74,144,217,0.1);
+            font-size:12px; color:var(--dim);
+        }
+        .spinner { width:13px; height:13px; border:2px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        /* ── ALERT BANNER ── */
         .alert-banner {
-            padding: 11px 16px;
-            text-align: center;
-            font-weight: 700;
-            font-size: 14px;
-            letter-spacing: 0.5px;
-            transition: background 0.4s;
+            padding:12px 16px; text-align:center;
+            font-weight:700; font-size:13px; letter-spacing:.8px; text-transform:uppercase;
         }
-        .alert-banner.clear     { background: #0a2a14; color: #4caf50; }
-        .alert-banner.watch     { background: #2d1e00; color: #ffb300; }
-        .alert-banner.warning   { background: #2d0000; color: #ff4444; animation: blink 1s infinite; }
-        .alert-banner.emergency { background: #1e0030; color: #cc44ff; animation: blink 0.5s infinite; }
+        .alert-banner.clear     { background:#040f08; color:var(--green); border-bottom:1px solid rgba(0,200,83,0.12); }
+        .alert-banner.watch     { background:#120900; color:#ffb300; border-bottom:1px solid rgba(255,179,0,0.15); }
+        .alert-banner.warning   { background:#120000; color:var(--red); border-bottom:1px solid rgba(255,59,59,0.2); animation:pulse-red 1.2s ease-in-out infinite; }
+        .alert-banner.emergency { background:#0d0020; color:#cc44ff; border-bottom:1px solid rgba(204,68,255,0.25); animation:pulse-purple .7s ease-in-out infinite; }
+        @keyframes pulse-red    { 0%,100%{background:#120000;} 50%{background:#200000;} }
+        @keyframes pulse-purple { 0%,100%{background:#0d0020;} 50%{background:#160035;} }
 
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: 0.65; }
-        }
-
-        /* ---- MAP ---- */
-        #map { height: 56vh; width: 100%; }
-
-        /* ---- SECTIONS ---- */
-        .section {
-            padding: 14px 16px;
-            border-bottom: 1px solid #14141f;
-        }
-        .section-title {
-            font-size: 10px;
-            font-weight: 700;
-            color: #4a90d9;
-            letter-spacing: 1.8px;
-            text-transform: uppercase;
-            margin-bottom: 10px;
+        /* ── MAP ── */
+        #map { height:56vh; width:100%; }
+        .map-wrap { position:relative; }
+        .radar-badge {
+            position:absolute; bottom:8px; left:8px; z-index:500;
+            background:rgba(6,6,15,0.88); backdrop-filter:blur(8px);
+            border:1px solid var(--border); color:var(--dim);
+            font-size:10px; font-weight:700; padding:4px 9px; border-radius:20px;
+            letter-spacing:.6px; text-transform:uppercase;
         }
 
-        /* ---- ALERT CARDS ---- */
+        /* ── MAP CONTROLS ── */
+        .map-controls {
+            display:flex; gap:7px; padding:10px 16px;
+            background:var(--bg2); border-bottom:1px solid var(--border);
+            overflow-x:auto; -webkit-overflow-scrolling:touch;
+        }
+        .map-controls::-webkit-scrollbar { display:none; }
+        .mc-btn {
+            flex-shrink:0; padding:6px 13px;
+            background:var(--bg3); border:1px solid var(--border);
+            border-radius:20px; color:var(--dim);
+            font-size:11px; font-weight:600; cursor:pointer;
+            white-space:nowrap; transition:all .15s; font-family:inherit;
+        }
+        .mc-btn.on { background:rgba(74,144,217,0.12); border-color:rgba(74,144,217,0.35); color:var(--blue); }
+
+        /* ── CONDITIONS STRIP ── */
+        .cond-strip { display:flex; overflow-x:auto; -webkit-overflow-scrolling:touch; border-bottom:1px solid var(--border); }
+        .cond-strip::-webkit-scrollbar { display:none; }
+        .cond-item { flex:0 0 auto; padding:13px 16px; text-align:center; min-width:76px; border-right:1px solid var(--border); background:var(--bg2); }
+        .cond-lbl { font-size:9px; font-weight:700; color:var(--mute); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:5px; }
+        .cond-val { font-size:21px; font-weight:700; color:#fff; line-height:1; font-variant-numeric:tabular-nums; }
+        .cond-sub { font-size:10px; color:var(--dim); margin-top:3px; }
+
+        /* ── SECTIONS ── */
+        .section { padding:18px 16px; border-bottom:1px solid rgba(255,255,255,0.04); }
+        .sec-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+        .sec-title { font-size:10px; font-weight:700; color:var(--blue); letter-spacing:2px; text-transform:uppercase; }
+        .sec-meta  { font-size:11px; color:var(--mute); }
+
+        /* ── CARDS ── */
+        .card { background:var(--glass); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; }
+
+        /* ── ALERT CARDS ── */
         .alert-card {
-            background: #10101a;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 8px;
-            border-left: 4px solid #444;
+            background:var(--glass); border:1px solid var(--border); border-left:3px solid var(--mute);
+            border-radius:12px; padding:14px 14px 12px 16px; margin-bottom:9px;
+            cursor:pointer; transition:transform .12s, background .12s;
+            -webkit-tap-highlight-color:transparent;
         }
-        .alert-card.tornado-warning   { border-left-color: #ff4444; }
-        .alert-card.tornado-emergency { border-left-color: #cc44ff; }
-        .alert-card.tornado-watch     { border-left-color: #ffb300; }
-        .alert-card.severe-warning    { border-left-color: #ffee00; }
-        .alert-card-title    { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
-        .alert-card-distance { font-size: 13px; font-weight: 600; color: #4a90d9; margin: 3px 0; }
-        .alert-card-meta     { font-size: 11px; color: #777; display: flex; gap: 12px; flex-wrap: wrap; }
+        .alert-card:active { transform:scale(0.985); background:rgba(255,255,255,0.05); }
+        .alert-card.tornado-emergency { border-left-color:#cc44ff; }
+        .alert-card.tornado-warning   { border-left-color:var(--red); }
+        .alert-card.tornado-watch     { border-left-color:#ffb300; }
+        .alert-card.severe-warning    { border-left-color:var(--yellow); }
+        .ac-top  { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+        .ac-tag  { display:inline-block; padding:3px 9px; border-radius:20px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; }
+        .tag-em  { background:rgba(204,68,255,.15); color:#cc44ff; }
+        .tag-tw  { background:rgba(255,59,59,.15);  color:var(--red); }
+        .tag-wch { background:rgba(255,179,0,.15);  color:#ffb300; }
+        .tag-sev { background:rgba(255,214,0,.15);  color:var(--yellow); }
+        .ac-dist { font-size:13px; font-weight:700; color:var(--blue); white-space:nowrap; }
+        .ac-area { font-size:12px; color:var(--dim); margin-top:8px; margin-bottom:5px; }
+        .ac-meta { font-size:11px; color:var(--mute); }
+        .no-alerts { text-align:center; padding:24px 16px; color:var(--green); font-size:13px; font-weight:500; }
+        .no-alerts-icon { font-size:36px; display:block; margin-bottom:10px; opacity:.7; }
 
-        .no-alerts { color: #4caf50; font-size: 13px; padding: 6px 0; }
+        /* ── CHASE DAY ── */
+        .chase-card { background:var(--glass); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+        .chase-top { padding:18px; display:flex; align-items:center; gap:16px; }
+        .chase-icon-wrap { width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:28px; flex-shrink:0; }
+        .chase-rating { font-size:22px; font-weight:800; line-height:1.1; }
+        .chase-detail { font-size:12px; color:var(--dim); margin-top:5px; line-height:1.55; }
 
-        /* ---- CHASE DAY ---- */
-        .chase-day {
-            background: #10101a;
-            border-radius: 8px;
-            padding: 14px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-        .chase-day-icon   { font-size: 34px; flex-shrink: 0; }
-        .chase-day-rating { font-size: 20px; font-weight: 700; }
-        .chase-day-detail { font-size: 12px; color: #777; margin-top: 4px; }
-        .spc-link {
-            display: block;
-            text-align: center;
-            color: #4a90d9;
-            font-size: 12px;
-            margin-top: 8px;
-            text-decoration: none;
-        }
+        /* CAPE bar */
+        .cape-section { padding:0 18px 18px; }
+        .cape-wrap { background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:14px; }
+        .cape-info { flex-shrink:0; }
+        .cape-lbl2 { font-size:9px; color:var(--mute); text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:2px; }
+        .cape-num  { font-size:16px; font-weight:800; }
+        .cape-bar-outer { flex:1; height:6px; background:var(--bg3); border-radius:3px; overflow:hidden; }
+        .cape-bar-inner { height:100%; border-radius:3px; transition:width .9s ease; }
+        .cape-text { font-size:11px; font-weight:700; white-space:nowrap; }
 
-        /* ---- POSITIONING ---- */
-        .position-card {
-            background: #10101a;
-            border-radius: 8px;
-            padding: 14px;
-            line-height: 1.55;
-        }
-        .position-card.active { border: 1px solid #ffb300; }
-        .position-card p { color: #ccc; margin-bottom: 7px; font-size: 13px; }
+        /* SPC embed */
+        .spc-section { border-top:1px solid var(--border); padding:14px; }
+        .spc-lbl { font-size:9px; color:var(--mute); text-transform:uppercase; letter-spacing:1.5px; font-weight:700; margin-bottom:10px; }
+        .spc-img-wrap { border-radius:8px; overflow:hidden; background:#000; }
+        .spc-img-wrap img { width:100%; max-width:420px; display:block; margin:0 auto; }
+        .spc-btns { display:flex; gap:8px; margin-top:10px; }
+        .spc-btn { flex:1; text-align:center; background:var(--bg3); border:1px solid var(--border); color:var(--blue); font-size:12px; font-weight:600; padding:9px; border-radius:8px; text-decoration:none; transition:background .15s; display:block; }
+        .spc-btn:active { background:var(--blue-dim); color:#fff; }
+
+        /* ── HOURLY ── */
+        .hourly-strip { display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:3px; }
+        .hourly-strip::-webkit-scrollbar { display:none; }
+        .hr-card { flex:0 0 auto; background:var(--glass); border:1px solid var(--border); border-radius:10px; padding:12px 10px; text-align:center; min-width:62px; }
+        .hr-time  { font-size:10px; color:var(--mute); font-weight:600; margin-bottom:5px; }
+        .hr-icon  { font-size:20px; margin-bottom:4px; }
+        .hr-temp  { font-size:14px; font-weight:700; color:#fff; }
+        .hr-rain  { font-size:10px; color:var(--blue); font-weight:600; margin-top:3px; }
+        .hr-cape  { font-size:9px; font-weight:800; margin-top:3px; text-transform:uppercase; letter-spacing:.5px; }
+        .cape-hi  { color:var(--red); }
+        .cape-md  { color:#ffb300; }
+
+        /* ── POSITIONING ── */
+        .pos-card { background:var(--glass); border:1px solid var(--border); border-radius:12px; padding:16px; }
+        .pos-card.active { border-color:rgba(255,179,0,.4); background:rgba(255,179,0,.04); }
+        .pos-rule { display:flex; gap:10px; margin-bottom:10px; font-size:13px; line-height:1.55; }
+        .pos-icon { font-size:16px; flex-shrink:0; margin-top:1px; }
+        .pos-dim  { color:var(--dim); }
+        .pos-hi   { color:#fff; font-weight:600; }
         .map-link {
-            display: block;
-            background: #1e3a5f;
-            color: #4a90d9;
-            text-align: center;
-            padding: 9px;
-            border-radius: 6px;
-            margin-top: 10px;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 13px;
+            display:flex; align-items:center; justify-content:center; gap:6px;
+            background:rgba(74,144,217,.08); border:1px solid rgba(74,144,217,.22);
+            color:var(--blue); padding:11px; border-radius:10px; margin-top:12px;
+            text-decoration:none; font-weight:600; font-size:13px; transition:background .15s;
         }
+        .map-link:active { background:rgba(74,144,217,.16); }
 
-        /* ---- TERRAIN ZONES ---- */
-        .zone-card {
-            background: #10101a;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 8px;
-        }
-        .zone-card-title { font-weight: 700; font-size: 13px; margin-bottom: 5px; }
-        .zone-card-body  { font-size: 12px; color: #bbb; line-height: 1.6; }
+        /* ── ZONES ── */
+        .zone-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .zone-card { background:var(--glass); border:1px solid var(--border); border-radius:12px; padding:14px; }
+        .zone-card.go    { border-top:2px solid var(--green); }
+        .zone-card.avoid { border-top:2px solid var(--red); }
+        .zone-icon  { font-size:20px; margin-bottom:7px; }
+        .zone-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+        .zone-card.go .zone-label    { color:var(--green); }
+        .zone-card.avoid .zone-label { color:var(--red); }
+        .zone-body { font-size:11px; color:var(--dim); line-height:1.75; }
 
-        /* ---- CHASER TABS ---- */
-        .tab-bar {
-            display: flex;
-            background: #10101a;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-        .tab-btn {
-            flex: 1;
-            padding: 9px 4px;
-            background: none;
-            border: none;
-            color: #666;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .tab-btn.active { background: #1e3a5f; color: #4a90d9; }
-        .tab-panel { display: none; }
-        .tab-panel.active { display: block; }
-        .twitter-wrap {
-            background: #10101a;
-            border-radius: 8px;
-            overflow: hidden;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .x-fallback {
-            padding: 14px;
-            font-size: 12px;
-            color: #777;
-            text-align: center;
-            line-height: 1.7;
-        }
-        .x-fallback a { color: #4a90d9; }
-
-        /* ---- QUICK LINKS ---- */
-        .quick-links {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-        .quick-link {
-            background: #10101a;
-            border-radius: 8px;
-            padding: 13px 10px;
-            text-decoration: none;
-            color: #ccc;
-            text-align: center;
-            font-size: 12px;
-            font-weight: 600;
-            border: 1px solid #1a1a2e;
-            display: block;
-        }
-        .quick-link:active { background: #1e3a5f; color: #fff; }
-        .quick-link-icon { font-size: 22px; display: block; margin-bottom: 4px; }
-
-        /* ---- REFRESH BTN ---- */
-        .refresh-btn {
-            background: #1e3a5f;
-            color: #4a90d9;
-            border: none;
-            padding: 9px 16px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 8px;
-        }
-        .refresh-btn:active { background: #2a5080; }
-
-        .last-updated {
-            font-size: 11px;
-            color: #444;
-            text-align: center;
-            padding: 10px;
-        }
-
-        /* ---- CHASER CARDS ---- */
+        /* ── CHASER CARDS ── */
         .chaser-card {
-            background: #10101a;
-            border-radius: 8px;
-            padding: 13px;
-            margin-bottom: 8px;
-            border-left: 4px solid #1e3a5f;
-            cursor: pointer;
-            transition: background 0.15s;
+            display:flex; align-items:center; gap:12px;
+            background:var(--glass); border:1px solid var(--border); border-radius:12px;
+            padding:13px 14px; margin-bottom:8px; text-decoration:none;
+            cursor:pointer; transition:transform .1s, background .12s;
+            -webkit-tap-highlight-color:transparent;
         }
-        .chaser-card:active { background: #1a1a2e; }
-        .chaser-handle { font-size: 12px; color: #4a90d9; font-weight: 700; margin-bottom: 2px; }
-        .chaser-name   { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }
-        .chaser-desc   { font-size: 12px; color: #888; line-height: 1.5; margin-bottom: 6px; }
-        .chaser-open   { font-size: 11px; color: #4a90d9; font-weight: 600; }
+        .chaser-card:active { transform:scale(0.985); background:rgba(255,255,255,0.05); }
+        .ch-avatar { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+        .ch-info { flex:1; min-width:0; }
+        .ch-name   { font-size:14px; font-weight:700; color:#fff; margin-bottom:1px; }
+        .ch-handle { font-size:11px; color:var(--blue); font-weight:600; margin-bottom:3px; }
+        .ch-desc   { font-size:11px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .ch-arrow  { color:var(--mute); font-size:16px; flex-shrink:0; }
+
+        /* ── QUICK LINKS ── */
+        .quick-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+        .ql {
+            background:var(--glass); border:1px solid var(--border); border-radius:12px;
+            padding:14px 8px; text-decoration:none; color:var(--text);
+            text-align:center; font-size:11px; font-weight:600; display:block;
+            transition:background .12s, transform .1s; -webkit-tap-highlight-color:transparent;
+        }
+        .ql:active { transform:scale(0.95); background:rgba(74,144,217,.1); }
+        .ql-icon  { font-size:24px; display:block; margin-bottom:6px; }
+        .ql-label { color:var(--dim); }
+
+        /* ── REFRESH + FOOTER ── */
+        .refresh-btn {
+            display:flex; align-items:center; justify-content:center; gap:8px;
+            width:100%; background:rgba(74,144,217,.07); border:1px solid rgba(74,144,217,.18);
+            color:var(--blue); padding:11px; border-radius:10px; font-size:13px;
+            font-weight:600; cursor:pointer; margin-top:12px; font-family:inherit;
+            transition:background .15s; letter-spacing:.3px;
+        }
+        .refresh-btn:active { background:rgba(74,144,217,.14); }
+        .footer { padding:16px; text-align:center; color:var(--mute); font-size:11px; border-top:1px solid var(--border); }
+        .footer span { color:var(--dim); }
+
+        /* ── PULSE RING (user dot) ── */
+        @keyframes pulse-ring {
+            0%   { transform:scale(1);   opacity:.5; }
+            100% { transform:scale(2.8); opacity:0; }
+        }
     </style>
 </head>
 <body>
 
-<!-- HEADER -->
+<!-- GPS Bar -->
+<div class="gps-bar" id="gps-bar">
+    <div class="spinner"></div>
+    <span>Requesting your location for accurate alerts…</span>
+</div>
+
+<!-- Header -->
 <div class="header">
-    <div>
-        <div class="header-title">⛈ CHASE DASHBOARD</div>
-        <div class="header-sub">St. Charles, MO &nbsp;·&nbsp; <span id="clock">--:--</span></div>
-    </div>
-    <div style="text-align:right">
-        <div style="font-size:11px; color:#666">200-mi radius</div>
-        <div style="font-size:12px; color:#4a90d9; font-weight:600;" id="alert-count">Loading...</div>
-    </div>
-</div>
-
-<!-- ALERT BANNER -->
-<div class="alert-banner clear" id="alert-banner">CHECKING FOR ACTIVE WARNINGS...</div>
-
-<!-- MAP -->
-<div id="map"></div>
-
-<!-- ACTIVE ALERTS -->
-<div class="section">
-    <div class="section-title">Active Alerts in Range</div>
-    <div id="alerts-list"><div style="color:#666; font-size:13px;">Loading...</div></div>
-    <button class="refresh-btn" onclick="fetchAlerts()">↻ Refresh Alerts</button>
-</div>
-
-<!-- CHASE DAY -->
-<div class="section">
-    <div class="section-title">Today's Chase Setup</div>
-    <div class="chase-day">
-        <div class="chase-day-icon" id="chase-icon">🌤</div>
+    <div class="header-left">
+        <div class="header-logo">🌪</div>
         <div>
-            <div class="chase-day-rating" id="chase-rating">Checking...</div>
-            <div class="chase-day-detail" id="chase-detail">Loading Storm Prediction Center data</div>
+            <div class="header-title">STORM CHASE HQ</div>
+            <div class="header-loc">
+                <span class="loc-dot"></span>
+                <span id="loc-name">Locating…</span>
+            </div>
         </div>
     </div>
-    <a class="spc-link" href="https://www.spc.noaa.gov/products/outlook/" target="_blank">
-        View Full SPC Outlook →
+    <div class="header-right">
+        <div class="alert-badge clear" id="alert-badge">All Clear</div>
+        <div class="clock" id="clock">—</div>
+    </div>
+</div>
+
+<!-- Alert Banner -->
+<div class="alert-banner clear" id="alert-banner">INITIALIZING…</div>
+
+<!-- Map -->
+<div class="map-wrap">
+    <div id="map"></div>
+    <div class="radar-badge" id="radar-badge">RADAR LOADING…</div>
+</div>
+
+<!-- Map Controls -->
+<div class="map-controls">
+    <button class="mc-btn on"  id="btn-street" onclick="setLayer('street')">Street</button>
+    <button class="mc-btn"     id="btn-sat"    onclick="setLayer('sat')">Satellite</button>
+    <button class="mc-btn on"  id="btn-radar"  onclick="toggleRadar()">Radar ON</button>
+    <button class="mc-btn on"  id="btn-polys"  onclick="togglePolygons()">Alerts ON</button>
+    <button class="mc-btn"                     onclick="centerMe()">📍 My Location</button>
+</div>
+
+<!-- Conditions Strip -->
+<div class="cond-strip">
+    <div class="cond-item">
+        <div class="cond-lbl">TEMP</div>
+        <div class="cond-val" id="c-temp">—</div>
+        <div class="cond-sub">feels <span id="c-feels">—</span></div>
+    </div>
+    <div class="cond-item">
+        <div class="cond-lbl">WIND</div>
+        <div class="cond-val" id="c-wind">—</div>
+        <div class="cond-sub"><span id="c-wdir">—</span> mph</div>
+    </div>
+    <div class="cond-item">
+        <div class="cond-lbl">GUSTS</div>
+        <div class="cond-val" id="c-gust">—</div>
+        <div class="cond-sub">mph</div>
+    </div>
+    <div class="cond-item">
+        <div class="cond-lbl">DEWPT</div>
+        <div class="cond-val" id="c-dew">—</div>
+        <div class="cond-sub">°F</div>
+    </div>
+    <div class="cond-item">
+        <div class="cond-lbl">HUMID</div>
+        <div class="cond-val" id="c-hum">—</div>
+        <div class="cond-sub">%</div>
+    </div>
+    <div class="cond-item">
+        <div class="cond-lbl">PRESSURE</div>
+        <div class="cond-val" id="c-pres" style="font-size:16px;">—</div>
+        <div class="cond-sub">hPa</div>
+    </div>
+</div>
+
+<!-- Active Alerts -->
+<div class="section">
+    <div class="sec-hdr">
+        <div class="sec-title">Active Alerts</div>
+        <div class="sec-meta" id="radius-label">200mi radius</div>
+    </div>
+    <div id="alerts-list">
+        <div class="card" style="height:80px; background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border:none;"></div>
+    </div>
+    <button class="refresh-btn" onclick="refresh()">
+        <span id="rspin">↻</span> Refresh All Data
+    </button>
+</div>
+
+<!-- Chase Day -->
+<div class="section">
+    <div class="sec-title" style="margin-bottom:14px;">Today's Chase Setup</div>
+    <div class="chase-card">
+        <div class="chase-top">
+            <div class="chase-icon-wrap" id="chase-wrap" style="background:linear-gradient(135deg,#1a2a4a,#2a4a7a);">
+                <span id="chase-icon">🌤</span>
+            </div>
+            <div>
+                <div class="chase-rating" id="chase-rating" style="color:#fff;">Checking…</div>
+                <div class="chase-detail" id="chase-detail">Loading Storm Prediction Center data…</div>
+            </div>
+        </div>
+        <!-- CAPE -->
+        <div class="cape-section" id="cape-section" style="display:none;">
+            <div class="cape-wrap">
+                <div class="cape-info">
+                    <div class="cape-lbl2">CAPE (Instability)</div>
+                    <div class="cape-num" id="cape-num">—</div>
+                </div>
+                <div style="flex:1;">
+                    <div class="cape-bar-outer">
+                        <div class="cape-bar-inner" id="cape-bar" style="width:0%;background:var(--green);"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--mute);margin-top:3px;font-weight:600;">
+                        <span>LOW</span><span>MOD</span><span>HIGH</span>
+                    </div>
+                </div>
+                <div class="cape-text" id="cape-text">—</div>
+            </div>
+        </div>
+        <!-- SPC -->
+        <div class="spc-section">
+            <div class="spc-lbl">SPC Day 1 Outlook — Tornado Risk</div>
+            <div class="spc-img-wrap">
+                <img src="https://www.spc.noaa.gov/products/outlook/day1otlk_prt.gif"
+                     alt="SPC Day 1 Categorical Outlook"
+                     onerror="this.parentElement.innerHTML='<div style=\'padding:14px;font-size:12px;color:var(--mute);text-align:center;\'>SPC image unavailable — <a href=\'https://www.spc.noaa.gov/products/outlook/\' target=\'_blank\' style=\'color:var(--blue);\'>View on SPC →</a></div>'"
+                />
+            </div>
+            <div class="spc-btns">
+                <a href="https://www.spc.noaa.gov/products/outlook/" target="_blank" class="spc-btn">Day 1</a>
+                <a href="https://www.spc.noaa.gov/products/outlook/day2otlk.html" target="_blank" class="spc-btn">Day 2</a>
+                <a href="https://www.spc.noaa.gov/products/watch/" target="_blank" class="spc-btn">Watches</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hourly -->
+<div class="section">
+    <div class="sec-hdr">
+        <div class="sec-title">Next 12 Hours</div>
+        <div class="sec-meta">scroll →</div>
+    </div>
+    <div class="hourly-strip" id="hourly-strip">
+        <div style="color:var(--mute);font-size:12px;padding:8px;">Loading forecast…</div>
+    </div>
+</div>
+
+<!-- Positioning -->
+<div class="section">
+    <div class="sec-title" style="margin-bottom:14px;">Positioning Advice</div>
+    <div class="pos-card" id="pos-card">
+        <div class="pos-rule">
+            <span class="pos-icon">✅</span>
+            <span class="pos-dim">No active tornado warnings in range right now.</span>
+        </div>
+        <div class="pos-rule">
+            <span class="pos-icon">🔑</span>
+            <span class="pos-dim">When a warning appears nearby, real-time positioning advice will show here.</span>
+        </div>
+        <div class="pos-rule">
+            <span class="pos-icon">📌</span>
+            <span class="pos-dim"><span class="pos-hi">Always east or southeast</span> of the tornado path — never north or west of a moving storm.</span>
+        </div>
+    </div>
+</div>
+
+<!-- Terrain Zones -->
+<div class="section">
+    <div class="sec-title" style="margin-bottom:14px;">Terrain — Chase Zones Near You</div>
+    <div class="zone-grid">
+        <div class="zone-card go">
+            <div class="zone-icon">✅</div>
+            <div class="zone-label">Go Zones</div>
+            <div class="zone-body" id="zone-go">Loading…</div>
+        </div>
+        <div class="zone-card avoid">
+            <div class="zone-icon">🚫</div>
+            <div class="zone-label">Avoid</div>
+            <div class="zone-body" id="zone-avoid">Loading…</div>
+        </div>
+    </div>
+    <p style="font-size:11px;color:var(--mute);margin-top:10px;line-height:1.65;">Tip: toggle <strong style="color:var(--dim);">Satellite</strong> in the map controls to visually check terrain before you drive out.</p>
+</div>
+
+<!-- Chasers -->
+<div class="section">
+    <div class="sec-title" style="margin-bottom:4px;">Top Storm Chasers on X</div>
+    <p style="font-size:11px;color:var(--mute);margin-bottom:14px;">Tap to open — real-time updates during chase days.</p>
+    <a class="chaser-card" href="https://x.com/ReedTimmerAccu" target="_blank">
+        <div class="ch-avatar" style="background:linear-gradient(135deg,#1a2a50,#2a50a0);">🌪</div>
+        <div class="ch-info">
+            <div class="ch-name">Reed Timmer</div>
+            <div class="ch-handle">@ReedTimmerAccu</div>
+            <div class="ch-desc">Most aggressive active chaser — real-time video & position updates</div>
+        </div>
+        <span class="ch-arrow">›</span>
+    </a>
+    <a class="chaser-card" href="https://x.com/BasehuntersChasing" target="_blank">
+        <div class="ch-avatar" style="background:linear-gradient(135deg,#1a3a1a,#2a6a2a);">🎯</div>
+        <div class="ch-info">
+            <div class="ch-name">Basehunters</div>
+            <div class="ch-handle">@BasehuntersChasing</div>
+            <div class="ch-desc">Pro team — excellent positioning info & live intercept footage</div>
+        </div>
+        <span class="ch-arrow">›</span>
+    </a>
+    <a class="chaser-card" href="https://x.com/pecos_hank" target="_blank">
+        <div class="ch-avatar" style="background:linear-gradient(135deg,#2a1a00,#5a3a00);">🎥</div>
+        <div class="ch-info">
+            <div class="ch-name">Pecos Hank</div>
+            <div class="ch-handle">@pecos_hank</div>
+            <div class="ch-desc">Incredible video quality — very consistent field updates</div>
+        </div>
+        <span class="ch-arrow">›</span>
+    </a>
+    <a class="chaser-card" href="https://x.com/NWSStLouis" target="_blank" id="nws-chaser">
+        <div class="ch-avatar" style="background:linear-gradient(135deg,#001a30,#003060);">📡</div>
+        <div class="ch-info">
+            <div class="ch-name">NWS (local office)</div>
+            <div class="ch-handle" id="nws-handle">@NWSStLouis</div>
+            <div class="ch-desc">Official local office — tornado warnings for your area first</div>
+        </div>
+        <span class="ch-arrow">›</span>
+    </a>
+    <a class="chaser-card" href="https://x.com/kelleywx" target="_blank">
+        <div class="ch-avatar" style="background:linear-gradient(135deg,#1a001a,#3a0050);">📊</div>
+        <div class="ch-info">
+            <div class="ch-name">Kelley Williamson</div>
+            <div class="ch-handle">@kelleywx</div>
+            <div class="ch-desc">Best for morning forecast analysis — tells you where to be early</div>
+        </div>
+        <span class="ch-arrow">›</span>
     </a>
 </div>
 
-<!-- POSITIONING -->
+<!-- Quick Links -->
 <div class="section">
-    <div class="section-title">Positioning Advice</div>
-    <div class="position-card" id="position-card">
-        <p>No active tornado warnings in range right now.</p>
-        <p style="color:#666; font-size:12px;">When a tornado warning appears nearby, this section gives you real-time advice on where to position for a safe view.</p>
-        <p style="color:#4caf50; font-size:12px; margin-top:6px;">✓ Reminder: Always stay east or southeast of the tornado path. Never north or west.</p>
+    <div class="sec-title" style="margin-bottom:14px;">Quick Links</div>
+    <div class="quick-grid">
+        <a href="https://www.spc.noaa.gov/products/outlook/" target="_blank" class="ql"><span class="ql-icon">🌪</span><span class="ql-label">SPC Outlook</span></a>
+        <a href="https://radar.weather.gov" target="_blank" class="ql"><span class="ql-icon">📡</span><span class="ql-label">NWS Radar</span></a>
+        <a href="https://www.spotternetwork.org" target="_blank" class="ql"><span class="ql-icon">📍</span><span class="ql-label">Spotter Net</span></a>
+        <a href="https://alerts.weather.gov" target="_blank" class="ql"><span class="ql-icon">⚠️</span><span class="ql-label">All Alerts</span></a>
+        <a href="https://mesonet.agron.iastate.edu/radar/app/" target="_blank" class="ql"><span class="ql-icon">🌩</span><span class="ql-label">IEM Radar</span></a>
+        <a href="https://www.wunderground.com/wundermap" target="_blank" class="ql"><span class="ql-icon">🗺️</span><span class="ql-label">WunderMap</span></a>
     </div>
 </div>
 
-<!-- TERRAIN ZONES -->
-<div class="section">
-    <div class="section-title">Terrain — Your Chase Zones</div>
-
-    <div class="zone-card" style="border-left:4px solid #4caf50;">
-        <div class="zone-card-title" style="color:#4caf50;">GO ZONES — Open Farmland</div>
-        <div class="zone-card-body">
-            · I-70 corridor west of St. Louis into central MO<br>
-            · Southern Iowa (flat, ideal visibility, great roads)<br>
-            · Western Illinois corn &amp; soy fields<br>
-            · Eastern Kansas plains
-        </div>
-    </div>
-
-    <div class="zone-card" style="border-left:4px solid #ff4444;">
-        <div class="zone-card-title" style="color:#ff4444;">AVOID — No Visibility</div>
-        <div class="zone-card-body">
-            · Southern MO Ozarks — dense trees, rolling hills, no escape<br>
-            · Any dense forest areas or river valleys<br>
-            · Switch to satellite layer on the map to check terrain before you go
-        </div>
-    </div>
-
-    <p style="font-size:11px; color:#555; margin-top:8px;">
-        Tip: toggle "Satellite" on the map (top-right corner) to visually check if an area is wooded or open before you drive out.
-    </p>
+<div class="footer">
+    Last updated: <span id="last-updated">—</span><br>
+    <span>Data: NWS · Open-Meteo · RainViewer · SPC</span>
 </div>
 
-<!-- CHASER FEEDS -->
-<div class="section">
-    <div class="section-title">Top Chasers on X</div>
-    <p style="font-size:12px; color:#555; margin-bottom:10px;">X no longer allows free embedded feeds. Tap any chaser below to open their profile directly.</p>
+<style>
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+</style>
 
-    <div class="chaser-card" onclick="window.open('https://x.com/ReedTimmerAccu','_blank')">
-        <div class="chaser-handle">@ReedTimmerAccu</div>
-        <div class="chaser-name">Reed Timmer</div>
-        <div class="chaser-desc">Most aggressive active chaser. Posts constantly during events — real-time video and position updates.</div>
-        <div class="chaser-open">Open on X →</div>
-    </div>
-
-    <div class="chaser-card" onclick="window.open('https://x.com/BasehuntersChasing','_blank')">
-        <div class="chaser-handle">@BasehuntersChasing</div>
-        <div class="chaser-name">Basehunters</div>
-        <div class="chaser-desc">Professional team. Excellent positioning info and live intercept footage.</div>
-        <div class="chaser-open">Open on X →</div>
-    </div>
-
-    <div class="chaser-card" onclick="window.open('https://x.com/pecos_hank','_blank')">
-        <div class="chaser-handle">@pecos_hank</div>
-        <div class="chaser-name">Pecos Hank</div>
-        <div class="chaser-desc">Incredible video quality. Very consistent field updates during chase days.</div>
-        <div class="chaser-open">Open on X →</div>
-    </div>
-
-    <div class="chaser-card" onclick="window.open('https://x.com/NWSStLouis','_blank')">
-        <div class="chaser-handle">@NWSStLouis</div>
-        <div class="chaser-name">NWS St. Louis</div>
-        <div class="chaser-desc">Your official local office. Posts tornado warnings for your area first.</div>
-        <div class="chaser-open">Open on X →</div>
-    </div>
-
-    <div class="chaser-card" onclick="window.open('https://x.com/kelleywx','_blank')">
-        <div class="chaser-handle">@kelleywx</div>
-        <div class="chaser-name">Kelley Williamson</div>
-        <div class="chaser-desc">Best for morning forecast analysis — tells you where to be before the day starts.</div>
-        <div class="chaser-open">Open on X →</div>
-    </div>
-</div>
-
-<!-- QUICK LINKS -->
-<div class="section">
-    <div class="section-title">Quick Links</div>
-    <div class="quick-links">
-        <a href="https://www.spc.noaa.gov/products/outlook/" target="_blank" class="quick-link">
-            <span class="quick-link-icon">🌪</span>SPC Outlook
-        </a>
-        <a href="https://radar.weather.gov/station/KLSX/standard" target="_blank" class="quick-link">
-            <span class="quick-link-icon">📡</span>NWS Radar
-        </a>
-        <a href="https://www.spotternetwork.org" target="_blank" class="quick-link">
-            <span class="quick-link-icon">📍</span>Spotter Network
-        </a>
-        <a href="https://alerts.weather.gov" target="_blank" class="quick-link">
-            <span class="quick-link-icon">⚠️</span>All Alerts
-        </a>
-        <a href="https://www.spc.noaa.gov/products/watch/" target="_blank" class="quick-link">
-            <span class="quick-link-icon">👁</span>Active Watches
-        </a>
-        <a href="https://mesonet.agron.iastate.edu/radar/app/" target="_blank" class="quick-link">
-            <span class="quick-link-icon">🌩</span>IEM Radar
-        </a>
-    </div>
-</div>
-
-<div class="last-updated" id="last-updated">Last updated: —</div>
-
-<!-- LEAFLET -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-
 <script>
 // ================================================================
-// CONFIG
+// STATE
 // ================================================================
-const HOME      = { lat: 38.7881, lon: -90.4974 };
-const RADIUS_MI = 200;           // ~2-3 hr drive
-const STATES    = 'MO,IL,IA,KS,NE,AR';
-const REFRESH   = 2 * 60 * 1000; // 2 min
+let HOME = { lat:38.7881, lon:-90.4974 };
+let userLoc = null;
+let locName = 'St. Charles, MO';
+const RADIUS_MI = 200;
+
+let mapPolys = [];
+let activeAlerts = [];
+let radarLayer = null;
+let showRadar = true;
+let showPolys = true;
+let homeMarker = null;
+let radiusCircle = null;
 
 // ================================================================
 // MAP
 // ================================================================
-const map = L.map('map', { center: [HOME.lat, HOME.lon], zoom: 7 });
+const map = L.map('map', { center:[HOME.lat,HOME.lon], zoom:7 });
 
-const streetTiles = L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    { attribution: '© OpenStreetMap', maxZoom: 19 }
+const streetLayer = L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    { attribution:'© OpenStreetMap © CARTO', maxZoom:19 }
 ).addTo(map);
 
-const satTiles = L.tileLayer(
+const satLayer = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    { attribution: '© Esri World Imagery', maxZoom: 19 }
+    { attribution:'© Esri', maxZoom:19 }
 );
 
-L.control.layers(
-    { 'Street Map': streetTiles, 'Satellite (check terrain)': satTiles },
-    {},
-    { position: 'topright' }
-).addTo(map);
+let currentBase = 'street';
 
-// Home pin
-const homeIcon = L.divIcon({
-    html: '<div style="width:14px;height:14px;background:#4a90d9;border-radius:50%;border:3px solid #fff;box-shadow:0 0 8px #4a90d9aa;"></div>',
-    iconSize: [14, 14], iconAnchor: [7, 7]
-});
-L.marker([HOME.lat, HOME.lon], { icon: homeIcon })
-    .addTo(map)
-    .bindPopup('<b>Home Base</b><br>St. Charles, MO');
+function setLayer(type) {
+    if (type === 'street' && currentBase !== 'street') {
+        map.removeLayer(satLayer); streetLayer.addTo(map); currentBase = 'street';
+        document.getElementById('btn-street').classList.add('on');
+        document.getElementById('btn-sat').classList.remove('on');
+    } else if (type === 'sat' && currentBase !== 'sat') {
+        map.removeLayer(streetLayer); satLayer.addTo(map); currentBase = 'sat';
+        document.getElementById('btn-sat').classList.add('on');
+        document.getElementById('btn-street').classList.remove('on');
+    }
+    if (radarLayer) { map.removeLayer(radarLayer); if(showRadar) radarLayer.addTo(map); }
+}
 
-// Radius ring
-L.circle([HOME.lat, HOME.lon], {
-    radius: RADIUS_MI * 1609.34,
-    color: '#4a90d9', weight: 1, fillOpacity: 0.04, dashArray: '6,6'
-}).addTo(map);
+function toggleRadar() {
+    showRadar = !showRadar;
+    const btn = document.getElementById('btn-radar');
+    btn.textContent = showRadar ? 'Radar ON' : 'Radar OFF';
+    btn.classList.toggle('on', showRadar);
+    if (radarLayer) { showRadar ? radarLayer.addTo(map) : map.removeLayer(radarLayer); }
+}
+
+function togglePolygons() {
+    showPolys = !showPolys;
+    const btn = document.getElementById('btn-polys');
+    btn.textContent = showPolys ? 'Alerts ON' : 'Alerts OFF';
+    btn.classList.toggle('on', showPolys);
+    mapPolys.forEach(l => showPolys ? l.addTo(map) : map.removeLayer(l));
+}
+
+function centerMe() {
+    if (userLoc) map.flyTo([userLoc.lat, userLoc.lon], 9, { duration:1.2 });
+}
+
+function placeUserMarker() {
+    const loc = userLoc || HOME;
+    if (homeMarker)  map.removeLayer(homeMarker);
+    if (radiusCircle) map.removeLayer(radiusCircle);
+
+    const icon = L.divIcon({
+        html:`<div style="position:relative;width:22px;height:22px;">
+            <div style="position:absolute;top:0;left:0;width:22px;height:22px;background:rgba(74,144,217,.2);border-radius:50%;animation:pulse-ring 2.2s ease-out infinite;"></div>
+            <div style="position:absolute;top:5px;left:5px;width:12px;height:12px;background:#4a90d9;border-radius:50%;border:2.5px solid #fff;box-shadow:0 0 12px rgba(74,144,217,.9);"></div>
+        </div>`,
+        iconSize:[22,22], iconAnchor:[11,11], className:''
+    });
+
+    homeMarker = L.marker([loc.lat,loc.lon],{icon})
+        .addTo(map)
+        .bindPopup(`<b>Your Location</b><br>${locName}`);
+
+    radiusCircle = L.circle([loc.lat,loc.lon],{
+        radius: RADIUS_MI*1609.34,
+        color:'rgba(74,144,217,.35)', weight:1.5, fillOpacity:.03, dashArray:'8,8'
+    }).addTo(map);
+
+    map.flyTo([loc.lat,loc.lon], 7, { duration:1.6 });
+}
 
 // ================================================================
 // RADAR (RainViewer)
 // ================================================================
-let radarLayer = null;
-
 async function loadRadar() {
+    document.getElementById('radar-badge').textContent = 'RADAR LOADING…';
     try {
         const res  = await fetch('https://api.rainviewer.com/public/weather-maps.json');
         const data = await res.json();
         const frames = data?.radar?.past;
-        if (!frames || frames.length === 0) return;
-
-        const latest  = frames[frames.length - 1];
-        const tileUrl = `https://tilecache.rainviewer.com${latest.path}/256/{z}/{x}/{y}/2/1_1.png`;
-
+        if (!frames?.length) { document.getElementById('radar-badge').textContent = 'RADAR N/A'; return; }
+        const latest = frames[frames.length - 1];
+        const url = `https://tilecache.rainviewer.com${latest.path}/256/{z}/{x}/{y}/4/1_1.png`;
         if (radarLayer) map.removeLayer(radarLayer);
-        radarLayer = L.tileLayer(tileUrl, { opacity: 0.65, attribution: '© RainViewer' });
-        radarLayer.addTo(map);
-    } catch (e) {
-        console.warn('Radar load error:', e);
+        radarLayer = L.tileLayer(url, { opacity:.72, attribution:'© RainViewer', zIndex:500 });
+        if (showRadar) radarLayer.addTo(map);
+        const t = new Date(latest.time * 1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        document.getElementById('radar-badge').textContent = `RADAR ${t}`;
+    } catch(e) {
+        document.getElementById('radar-badge').textContent = 'RADAR ERROR';
     }
 }
 
 // ================================================================
-// UTILITIES
+// GEOLOCATION
 // ================================================================
-function haversine(lat1, lon1, lat2, lon2) {
-    const R = 3958.8;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2
-            + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
-            * Math.sin(dLon / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+function initLocation() {
+    if (!navigator.geolocation) { hideGpsBar('Location unavailable — using St. Charles, MO'); onReady(); return; }
+    navigator.geolocation.getCurrentPosition(
+        async pos => {
+            userLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            HOME = { ...userLoc };
+            try {
+                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${userLoc.lat}&lon=${userLoc.lon}`,{ headers:{'Accept-Language':'en'} });
+                const g = await r.json();
+                locName = (g.address?.city || g.address?.town || g.address?.county || 'Your Location');
+                const st = g.address?.state;
+                if (st) locName += ', ' + (g.address?.ISO3166_2_lvl4?.split('-')[1] || st.slice(0,2).toUpperCase());
+            } catch(_) { locName = 'Your Location'; }
+            document.getElementById('loc-name').textContent = locName;
+            hideGpsBar(null);
+            updateNWSHandle();
+            onReady();
+        },
+        err => {
+            console.log('GPS error:', err);
+            document.getElementById('loc-name').textContent = 'St. Charles, MO';
+            hideGpsBar('Location access denied — using St. Charles, MO');
+            onReady();
+        },
+        { timeout:9000, maximumAge:60000 }
+    );
 }
 
-function getCentroid(geom) {
+function hideGpsBar(msg) {
+    const bar = document.getElementById('gps-bar');
+    if (msg) {
+        bar.innerHTML = `<span style="font-size:11px;color:var(--mute);">📍 ${msg}</span>`;
+        setTimeout(() => bar.style.display='none', 3500);
+    } else {
+        bar.style.display = 'none';
+    }
+}
+
+function updateNWSHandle() {
+    // Map lat ranges to approximate NWS office Twitter handles
+    const lat = HOME.lat, lon = HOME.lon;
+    let handle = '@NWS', href = 'https://x.com/NWS';
+    if      (lat>44)                     { handle='@NWSGoodHarbor';  href='https://x.com/NWSGoodHarbor'; }
+    else if (lat>42&&lon<-93)            { handle='@NWSMinneapolis'; href='https://x.com/NWSMinneapolis'; }
+    else if (lat>40&&lon<-95)            { handle='@NWSOmaha';       href='https://x.com/NWSOmaha'; }
+    else if (lat>39&&lon<-93&&lat<41)    { handle='@NWSKansasCity';  href='https://x.com/NWSKansasCity'; }
+    else if (lat>38&&lon<-90)            { handle='@NWSStLouis';     href='https://x.com/NWSStLouis'; }
+    else if (lat>36&&lon<-97)            { handle='@NWSTulsa';       href='https://x.com/NWSTulsa'; }
+    else if (lat>33&&lon<-96)            { handle='@NWSOklahomaCty'; href='https://x.com/NWSOklahomaCty'; }
+    else if (lon<-97&&lat<36)            { handle='@NWSAmarillo';    href='https://x.com/NWSAmarillo'; }
+    document.getElementById('nws-handle').textContent = handle;
+    document.getElementById('nws-chaser').href = href;
+}
+
+function onReady() {
+    placeUserMarker();
+    updateTerrainZones();
+    fetchAlerts();
+    fetchConditions();
+    fetchHourly();
+    loadRadar();
+}
+
+// ================================================================
+// UTILS
+// ================================================================
+function haversine(lat1,lon1,lat2,lon2) {
+    const R=3958.8, dL=(lat2-lat1)*Math.PI/180, dO=(lon2-lon1)*Math.PI/180;
+    const a=Math.sin(dL/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dO/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function centroid(geom) {
     if (!geom) return null;
-    let pts = [];
-    if      (geom.type === 'Point')        return { lat: geom.coordinates[1], lon: geom.coordinates[0] };
-    else if (geom.type === 'Polygon')      pts = geom.coordinates[0];
-    else if (geom.type === 'MultiPolygon') pts = geom.coordinates[0][0];
+    let pts=[];
+    if      (geom.type==='Point')        return {lat:geom.coordinates[1],lon:geom.coordinates[0]};
+    else if (geom.type==='Polygon')      pts=geom.coordinates[0];
+    else if (geom.type==='MultiPolygon') pts=geom.coordinates[0][0];
     if (!pts.length) return null;
-    const lat = pts.reduce((s, c) => s + c[1], 0) / pts.length;
-    const lon = pts.reduce((s, c) => s + c[0], 0) / pts.length;
-    return { lat, lon };
+    return { lat:pts.reduce((s,c)=>s+c[1],0)/pts.length, lon:pts.reduce((s,c)=>s+c[0],0)/pts.length };
 }
-
-function bearing(lat1, lon1, lat2, lon2) {
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
-    const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180)
-            - Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
-    const deg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-    const dirs = ['N','NE','E','SE','S','SW','W','NW'];
-    return dirs[Math.round(deg / 45) % 8];
+function bearingDir(lat1,lon1,lat2,lon2) {
+    const dO=(lon2-lon1)*Math.PI/180;
+    const y=Math.sin(dO)*Math.cos(lat2*Math.PI/180);
+    const x=Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180)-Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dO);
+    return ['N','NE','E','SE','S','SW','W','NW'][Math.round(((Math.atan2(y,x)*180/Math.PI+360)%360)/45)%8];
+}
+function windDirStr(deg) {
+    return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(deg/22.5)%16];
+}
+function dewpt(tempF, rh) {
+    const tC=(tempF-32)*5/9, a=17.27, b=237.7;
+    const g=(a*tC/(b+tC))+Math.log(rh/100);
+    return Math.round(b*g/(a-g)*9/5+32);
+}
+function wmoIcon(c) {
+    if(c===0)return'☀️'; if(c<=2)return'⛅'; if(c<=3)return'☁️';
+    if(c<=49)return'🌫️'; if(c<=59)return'🌦️'; if(c<=69)return'🌨️';
+    if(c<=79)return'❄️'; if(c<=84)return'🌧️'; return'⛈️';
 }
 
 // ================================================================
-// NWS ALERTS
+// ALERTS
 // ================================================================
-let mapPolygons  = [];
-let activeAlerts = [];
+const PRIORITY = {'Tornado Emergency':5,'Tornado Warning':4,'Tornado Watch':3,'Severe Thunderstorm Warning':2,'Severe Thunderstorm Watch':1};
+const COLOR    = {'Tornado Emergency':'#cc44ff','Tornado Warning':'#ff3b3b','Tornado Watch':'#ffb300','Severe Thunderstorm Warning':'#ffd600','Severe Thunderstorm Watch':'#aacc00'};
+const CLS      = {'Tornado Emergency':'tornado-emergency','Tornado Warning':'tornado-warning','Tornado Watch':'tornado-watch','Severe Thunderstorm Warning':'severe-warning','Severe Thunderstorm Watch':'severe-warning'};
+const TAG      = {'Tornado Emergency':'tag-em','Tornado Warning':'tag-tw','Tornado Watch':'tag-wch','Severe Thunderstorm Warning':'tag-sev','Severe Thunderstorm Watch':'tag-sev'};
 
-const EVENT_PRIORITY = {
-    'Tornado Emergency':          5,
-    'Tornado Warning':            4,
-    'Tornado Watch':              3,
-    'Severe Thunderstorm Warning':2,
-    'Severe Thunderstorm Watch':  1,
-};
-const EVENT_COLOR = {
-    'Tornado Emergency':          '#cc44ff',
-    'Tornado Warning':            '#ff4444',
-    'Tornado Watch':              '#ffb300',
-    'Severe Thunderstorm Warning':'#ffee00',
-    'Severe Thunderstorm Watch':  '#aacc00',
-};
-const EVENT_CLASS = {
-    'Tornado Emergency':          'tornado-emergency',
-    'Tornado Warning':            'tornado-warning',
-    'Tornado Watch':              'tornado-watch',
-    'Severe Thunderstorm Warning':'severe-warning',
-    'Severe Thunderstorm Watch':  'severe-warning',
-};
+function statesForLocation() {
+    const {lat,lon} = HOME;
+    if (lat>43)                     return 'MN,WI,IA,SD,ND,MI,IL';
+    if (lat>41&&lon<-95)            return 'NE,IA,SD,KS,MN,MO,WI';
+    if (lat>41&&lon>=-95)           return 'IL,WI,IN,MI,OH,IA,MO';
+    if (lat>38&&lon<-93)            return 'KS,MO,NE,IA,OK,CO,IL';
+    if (lat>38&&lon>=-93)           return 'MO,IL,KY,IN,TN,AR,IA';
+    if (lat>35&&lon<-95)            return 'OK,KS,MO,AR,TX,CO,NM';
+    if (lat>35&&lon>=-95)           return 'TN,KY,AR,MO,AL,MS,GA';
+    if (lat<35&&lon<-95)            return 'TX,OK,NM,AR,LA,KS';
+    return 'AL,AR,GA,IL,KS,KY,LA,MO,MS,OK,TN,TX';
+}
 
 async function fetchAlerts() {
-    document.getElementById('alert-banner').textContent = 'REFRESHING...';
     try {
-        const url = `https://api.weather.gov/alerts/active?area=${STATES}&status=actual`;
-        const res  = await fetch(url, {
-            headers: { 'User-Agent': 'ChaseDashboard/1.0 (jed.a.west@gmail.com)' }
-        });
+        const res  = await fetch(`https://api.weather.gov/alerts/active?area=${statesForLocation()}&status=actual`,
+            { headers:{'User-Agent':'StormChaseDashboard/2.0 (jed.a.west@gmail.com)'} });
         const data = await res.json();
 
-        // Clear old map polygons
-        mapPolygons.forEach(l => map.removeLayer(l));
-        mapPolygons  = [];
-        activeAlerts = [];
+        mapPolys.forEach(l => map.removeLayer(l));
+        mapPolys = []; activeAlerts = [];
 
-        const wanted = new Set(Object.keys(EVENT_PRIORITY));
-
-        for (const feat of (data.features || [])) {
+        for (const feat of (data.features||[])) {
             const p = feat.properties;
-            if (!wanted.has(p.event)) continue;
-
-            const centroid = getCentroid(feat.geometry);
-            if (!centroid) continue;
-
-            const dist = haversine(HOME.lat, HOME.lon, centroid.lat, centroid.lon);
+            if (!PRIORITY[p.event]) continue;
+            const c = centroid(feat.geometry);
+            if (!c) continue;
+            const dist = haversine(HOME.lat,HOME.lon,c.lat,c.lon);
             if (dist > RADIUS_MI) continue;
-
-            const dir = bearing(HOME.lat, HOME.lon, centroid.lat, centroid.lon);
-
-            activeAlerts.push({
-                event:    p.event,
-                area:     p.areaDesc,
-                headline: p.headline || p.event,
-                dist:     Math.round(dist),
-                dir,
-                expires:  p.expires,
-                centroid,
-                priority: EVENT_PRIORITY[p.event] || 0,
-            });
-
-            // Draw polygon on map
+            const dir = bearingDir(HOME.lat,HOME.lon,c.lat,c.lon);
+            activeAlerts.push({ event:p.event, area:p.areaDesc, headline:p.headline||p.event, description:p.description||'', dist:Math.round(dist), dir, expires:p.expires, c, priority:PRIORITY[p.event]||0 });
             const geom = feat.geometry;
-            if (geom && (geom.type === 'Polygon' || geom.type === 'MultiPolygon')) {
-                const color = EVENT_COLOR[p.event] || '#888';
-                const layer = L.geoJSON(feat, {
-                    style: { color, weight: 2, fillOpacity: 0.15, fillColor: color }
-                }).addTo(map);
-                layer.bindPopup(
-                    `<b>${p.event}</b><br>${p.areaDesc}<br>` +
-                    `<small>${Math.round(dist)} mi ${dir} of St. Charles</small>`
-                );
-                mapPolygons.push(layer);
+            if (geom && (geom.type==='Polygon'||geom.type==='MultiPolygon')) {
+                const col = COLOR[p.event]||'#888';
+                const lyr = L.geoJSON(feat, { style:{color:col,weight:2,fillOpacity:.16,fillColor:col} });
+                lyr.bindPopup(`<b>${p.event}</b><br>${p.areaDesc}<br><small>${Math.round(dist)} mi ${dir} of you</small>`);
+                if (showPolys) lyr.addTo(map);
+                mapPolys.push(lyr);
             }
         }
+        activeAlerts.sort((a,b) => b.priority-a.priority || a.dist-b.dist);
 
-        // Sort by priority then distance
-        activeAlerts.sort((a, b) => b.priority - a.priority || a.dist - b.dist);
+        renderBanner(); renderAlerts(); renderPos(); renderChaseDay();
 
-        renderBanner();
-        renderAlertsList();
-        renderPositioning();
-        renderChaseDay();
-
-        const now = new Date();
+        const badge = document.getElementById('alert-badge');
+        if (activeAlerts.length) {
+            badge.className='alert-badge';
+            badge.textContent=`${activeAlerts.length} alert${activeAlerts.length>1?'s':''}`;
+        } else {
+            badge.className='alert-badge clear'; badge.textContent='All Clear';
+        }
         document.getElementById('last-updated').textContent =
-            `Last updated: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        document.getElementById('alert-count').textContent =
-            `${activeAlerts.length} alert${activeAlerts.length !== 1 ? 's' : ''} in range`;
-
-    } catch (err) {
-        console.error('Alert fetch failed:', err);
-        const banner = document.getElementById('alert-banner');
-        banner.className = 'alert-banner watch';
-        banner.textContent = 'NETWORK ERROR — CHECK CONNECTION — TAP REFRESH';
+            new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    } catch(e) {
+        console.error(e);
+        const b=document.getElementById('alert-banner');
+        b.className='alert-banner watch'; b.textContent='⚠ NETWORK ERROR — TAP REFRESH';
     }
 }
 
 function renderBanner() {
-    const banner = document.getElementById('alert-banner');
-    const top = activeAlerts[0];
-    if (!top) {
-        banner.className = 'alert-banner clear';
-        banner.textContent = 'ALL CLEAR — NO ACTIVE WARNINGS IN RANGE';
-        return;
-    }
-    if (top.event === 'Tornado Emergency') {
-        banner.className = 'alert-banner emergency';
-        banner.textContent = `⚡ TORNADO EMERGENCY — ${top.dist} MI ${top.dir} — EXTREME DANGER`;
-    } else if (top.event === 'Tornado Warning') {
-        banner.className = 'alert-banner warning';
-        banner.textContent = `🌪 TORNADO WARNING — ${top.dist} MI ${top.dir} — CHASE POSSIBLE`;
-    } else if (top.event === 'Tornado Watch') {
-        banner.className = 'alert-banner watch';
-        banner.textContent = `⚠ TORNADO WATCH — ${top.dist} MI ${top.dir} — MONITOR CLOSELY`;
-    } else {
-        banner.className = 'alert-banner watch';
-        banner.textContent = `SEVERE ALERTS IN RANGE — NO TORNADO WARNINGS YET`;
-    }
+    const b=document.getElementById('alert-banner'), top=activeAlerts[0];
+    if (!top) { b.className='alert-banner clear'; b.textContent=`✓ ALL CLEAR — NO WARNINGS WITHIN ${RADIUS_MI} MI`; return; }
+    if      (top.event==='Tornado Emergency') { b.className='alert-banner emergency'; b.textContent=`⚡ TORNADO EMERGENCY — ${top.dist} MI ${top.dir} — EXTREME DANGER`; }
+    else if (top.event==='Tornado Warning')   { b.className='alert-banner warning';   b.textContent=`🌪 TORNADO WARNING — ${top.dist} MI ${top.dir} — CHASE POSSIBLE`; }
+    else if (top.event==='Tornado Watch')     { b.className='alert-banner watch';     b.textContent=`⚠ TORNADO WATCH — ${top.dist} MI ${top.dir} — MONITOR CLOSELY`; }
+    else                                      { b.className='alert-banner watch';     b.textContent=`⛈ SEVERE WEATHER IN RANGE — NO TORNADO WARNINGS YET`; }
 }
 
-function renderAlertsList() {
-    const el = document.getElementById('alerts-list');
+function renderAlerts() {
+    const el=document.getElementById('alerts-list');
     if (!activeAlerts.length) {
-        el.innerHTML = '<div class="no-alerts">✓ No tornado or severe weather alerts within 200 miles.</div>';
+        el.innerHTML=`<div class="no-alerts"><span class="no-alerts-icon">✅</span>No tornado or severe weather alerts within ${RADIUS_MI} miles.</div>`;
         return;
     }
-    el.innerHTML = activeAlerts.map(a => {
-        const exp = a.expires
-            ? new Date(a.expires).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : '—';
-        const cls = EVENT_CLASS[a.event] || 'severe-warning';
-        return `
-            <div class="alert-card ${cls}">
-                <div class="alert-card-title">${a.event}</div>
-                <div class="alert-card-distance">${a.dist} mi ${a.dir} of St. Charles</div>
-                <div class="alert-card-meta">
-                    <span>${a.area.split(';')[0].trim()}</span>
-                    <span>Expires ${exp}</span>
-                </div>
-            </div>`;
+    el.innerHTML=activeAlerts.map(a=>{
+        const exp=a.expires?new Date(a.expires).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'—';
+        const area=a.area.split(';').slice(0,2).map(s=>s.trim()).join(', ');
+        return `<div class="alert-card ${CLS[a.event]||'severe-warning'}" onclick="panTo(${a.c.lat},${a.c.lon})">
+            <div class="ac-top">
+                <span class="ac-tag ${TAG[a.event]||'tag-sev'}">${a.event}</span>
+                <span class="ac-dist">${a.dist} mi ${a.dir}</span>
+            </div>
+            <div class="ac-area">${area}</div>
+            <div class="ac-meta">Expires ${exp}</div>
+        </div>`;
     }).join('');
 }
 
-function renderPositioning() {
-    const card = document.getElementById('position-card');
-    const warn = activeAlerts.find(a =>
-        a.event === 'Tornado Warning' || a.event === 'Tornado Emergency'
-    );
+function panTo(lat,lon) {
+    map.flyTo([lat,lon],9,{duration:1.5});
+    window.scrollTo({top:0,behavior:'smooth'});
+}
 
+function renderPos() {
+    const card=document.getElementById('pos-card');
+    const warn=activeAlerts.find(a=>a.event==='Tornado Warning'||a.event==='Tornado Emergency');
     if (!warn) {
-        card.className = 'position-card';
-        card.innerHTML = `
-            <p>No active tornado warnings in range right now.</p>
-            <p style="color:#555;font-size:12px;">When a tornado warning appears nearby, this section will show real-time positioning advice.</p>
-            <p style="color:#4caf50;font-size:12px;margin-top:6px;">✓ Always stay east or southeast of the tornado path — never north or west.</p>`;
+        card.className='pos-card';
+        card.innerHTML=`
+            <div class="pos-rule"><span class="pos-icon">✅</span><span class="pos-dim">No active tornado warnings in range right now.</span></div>
+            <div class="pos-rule"><span class="pos-icon">📌</span><span class="pos-dim">When a warning appears nearby, real-time advice shows here.</span></div>
+            <div class="pos-rule"><span class="pos-icon">🔑</span><span class="pos-dim"><span class="pos-hi">Always east or southeast</span> of the tornado path — never north or west of a moving storm.</span></div>`;
         return;
     }
-
-    // Suggested viewing lat/lon: offset ~8 mi east-southeast of storm centroid
-    const viewLat = (warn.centroid.lat - 0.04).toFixed(4);
-    const viewLon = (warn.centroid.lon + 0.10).toFixed(4);
-
-    card.className = 'position-card active';
-    card.innerHTML = `
-        <p style="color:#ffb300;font-weight:700;">⚠ TORNADO WARNING — ACTIVE POSITIONING ADVICE</p>
-        <p>Storm is <strong>${warn.dist} miles ${warn.dir}</strong> of you.</p>
-        <p>Position <strong>east or southeast</strong> of the tornado's path — never north or west. The storm is moving northeast. If you're east, you're watching it cross in front of you from a safe distance.</p>
-        <p style="color:#4caf50;">✓ Find a north-south paved road in open farmland, 1–3 miles east of the warning polygon.</p>
-        <p style="color:#ff4444;">✗ If rain or hail starts hitting you, you're too close — drive east immediately.</p>
-        <p style="color:#555;font-size:12px;">Keep engine running. Know two escape roads going east before you stop.</p>
-        <a class="map-link"
-           href="https://www.google.com/maps/@${viewLat},${viewLon},11z"
-           target="_blank">
-            Open Suggested Viewing Area in Google Maps →
-        </a>`;
+    const vLat=(warn.c.lat-0.04).toFixed(4), vLon=(warn.c.lon+0.10).toFixed(4);
+    card.className='pos-card active';
+    card.innerHTML=`
+        <div class="pos-rule"><span class="pos-icon">⚡</span><span class="pos-dim"><span class="pos-hi" style="color:#ffb300;">TORNADO ${warn.event==='Tornado Emergency'?'EMERGENCY':'WARNING'}</span> — ${warn.dist} miles ${warn.dir} of you</span></div>
+        <div class="pos-rule"><span class="pos-icon">📍</span><span class="pos-dim">Get <span class="pos-hi">east or southeast</span> of the storm. Storm moving NE — position east means it crosses in front of you at safe distance.</span></div>
+        <div class="pos-rule"><span class="pos-icon">✅</span><span class="pos-dim" style="color:var(--green);">Find a <span class="pos-hi">north-south paved road in open farmland</span>, 1–3 miles east of the warning polygon.</span></div>
+        <div class="pos-rule"><span class="pos-icon">🚨</span><span class="pos-dim" style="color:var(--red);">If rain or hail hits you, you are too close — <span class="pos-hi">drive east immediately.</span></span></div>
+        <div class="pos-rule"><span class="pos-icon">🚗</span><span class="pos-dim" style="color:var(--mute);">Keep engine running. Know two escape roads east before you stop.</span></div>
+        <a class="map-link" href="https://www.google.com/maps/@${vLat},${vLon},11z" target="_blank">📍 Open Suggested Viewing Area in Google Maps</a>`;
 }
 
 function renderChaseDay() {
-    const icon   = document.getElementById('chase-icon');
-    const rating = document.getElementById('chase-rating');
-    const detail = document.getElementById('chase-detail');
-    const month  = new Date().getMonth() + 1; // 1 = Jan
+    const icon=document.getElementById('chase-icon'), wrap=document.getElementById('chase-wrap');
+    const rating=document.getElementById('chase-rating'), detail=document.getElementById('chase-detail');
+    const month=new Date().getMonth()+1;
+    const hasE=activeAlerts.some(a=>a.event==='Tornado Emergency');
+    const hasW=activeAlerts.some(a=>a.event==='Tornado Warning');
+    const hasCh=activeAlerts.some(a=>a.event==='Tornado Watch');
+    const inSeason=month>=3&&month<=6;
+    if      (hasE)    { icon.textContent='🌪'; wrap.style.background='linear-gradient(135deg,#3a0066,#6a00aa)'; rating.textContent='CHASE DAY — EMERGENCY'; rating.style.color='#cc44ff'; detail.textContent='Tornado emergency in range. Extremely dangerous — extra caution required.'; }
+    else if (hasW)    { icon.textContent='🌪'; wrap.style.background='linear-gradient(135deg,#5a0000,#aa0000)'; rating.textContent='ACTIVE CHASE DAY';      rating.style.color='#ff3b3b'; detail.textContent='Active tornado warning in range. Get out there — stay east, stay safe.'; }
+    else if (hasCh)   { icon.textContent='⛈'; wrap.style.background='linear-gradient(135deg,#3a2500,#7a5000)'; rating.textContent='POSSIBLE CHASE DAY';    rating.style.color='#ffb300'; detail.textContent='Tornado watch active. Monitor closely — conditions may produce tornadoes.'; }
+    else if (inSeason){ icon.textContent='🌤'; wrap.style.background='linear-gradient(135deg,#1a2a00,#2a4a00)'; rating.textContent='Check SPC Outlook';      rating.style.color='#ffd600'; detail.textContent='Peak season active. No warnings now — check the SPC outlook below for today\'s risk level.'; }
+    else              { icon.textContent='☀️'; wrap.style.background='linear-gradient(135deg,#001a10,#003a20)'; rating.textContent='Low Activity';           rating.style.color='var(--green)'; detail.textContent='No active alerts in range. Off-season or calm day.'; }
+}
 
-    const hasEmergency = activeAlerts.some(a => a.event === 'Tornado Emergency');
-    const hasWarning   = activeAlerts.some(a => a.event === 'Tornado Warning');
-    const hasWatch     = activeAlerts.some(a => a.event === 'Tornado Watch');
-    const inSeason     = month >= 3 && month <= 6;
+// ================================================================
+// CONDITIONS (Open-Meteo — free, no key)
+// ================================================================
+async function fetchConditions() {
+    try {
+        const {lat,lon}=HOME;
+        const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,weather_code&wind_speed_unit=mph&temperature_unit=fahrenheit`;
+        const res=await fetch(url);
+        const {current:c}=await res.json();
+        const dp=dewpt(c.temperature_2m, c.relative_humidity_2m);
+        document.getElementById('c-temp').textContent  = Math.round(c.temperature_2m)+'°';
+        document.getElementById('c-feels').textContent = Math.round(c.apparent_temperature)+'°';
+        document.getElementById('c-wind').textContent  = Math.round(c.wind_speed_10m);
+        document.getElementById('c-wdir').textContent  = windDirStr(c.wind_direction_10m);
+        document.getElementById('c-gust').textContent  = Math.round(c.wind_gusts_10m);
+        document.getElementById('c-dew').textContent   = dp+'°';
+        document.getElementById('c-hum').textContent   = c.relative_humidity_2m;
+        document.getElementById('c-pres').textContent  = Math.round(c.surface_pressure);
+        // Color dewpoint — high dewpoints = instability
+        const dewEl = document.getElementById('c-dew');
+        dewEl.style.color = dp>=65 ? 'var(--red)' : dp>=55 ? '#ffb300' : '#fff';
+    } catch(e) { console.warn('Conditions error:',e); }
+}
 
-    if (hasEmergency) {
-        icon.textContent    = '🌪';
-        rating.textContent  = 'CHASE DAY — EMERGENCY';
-        rating.style.color  = '#cc44ff';
-        detail.textContent  = 'Tornado emergency in range. Extremely dangerous storm.';
-    } else if (hasWarning) {
-        icon.textContent    = '🌪';
-        rating.textContent  = 'CHASE DAY';
-        rating.style.color  = '#ff4444';
-        detail.textContent  = 'Active tornado warning in range. Get out there — safely.';
-    } else if (hasWatch) {
-        icon.textContent    = '⛈';
-        rating.textContent  = 'POSSIBLE CHASE';
-        rating.style.color  = '#ffb300';
-        detail.textContent  = 'Tornado watch active. Monitor — conditions may produce tornadoes.';
-    } else if (inSeason) {
-        icon.textContent    = '🌤';
-        rating.textContent  = 'Check SPC Outlook';
-        rating.style.color  = '#ffee00';
-        detail.textContent  = 'Peak season. No active warnings now — check SPC for today\'s risk level.';
-    } else {
-        icon.textContent    = '☀️';
-        rating.textContent  = 'Low Activity';
-        rating.style.color  = '#4caf50';
-        detail.textContent  = 'No active alerts in range. Off-season or calm day.';
+// ================================================================
+// HOURLY (Open-Meteo)
+// ================================================================
+async function fetchHourly() {
+    try {
+        const {lat,lon}=HOME;
+        const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,weather_code,wind_gusts_10m,cape&wind_speed_unit=mph&temperature_unit=fahrenheit&forecast_days=2&timezone=auto`;
+        const res=await fetch(url);
+        const {hourly:h}=await res.json();
+        const now=new Date();
+        let si=0;
+        for(let i=0;i<h.time.length;i++) { if(new Date(h.time[i])>=now){si=i;break;} }
+
+        // Max CAPE next 24h
+        const capes=h.cape.slice(si,si+24).filter(v=>v!=null);
+        if(capes.length) setCape(Math.max(...capes));
+
+        let html='';
+        for(let i=si;i<Math.min(si+13,h.time.length);i++) {
+            const t=new Date(h.time[i]);
+            const hr=t.getHours(), ampm=hr>=12?'pm':'am', h12=hr%12||12;
+            const label = i===si ? 'Now' : `${h12}${ampm}`;
+            const temp=Math.round(h.temperature_2m[i]);
+            const prob=h.precipitation_probability[i]||0;
+            const cape=h.cape[i]||0;
+            const icon=wmoIcon(h.weather_code[i]||0);
+            let capeHtml='';
+            if(cape>2500) capeHtml=`<div class="hr-cape cape-hi">HIGH</div>`;
+            else if(cape>1000) capeHtml=`<div class="hr-cape cape-md">MOD</div>`;
+            html+=`<div class="hr-card" style="${i===si?'border-color:rgba(74,144,217,.35);background:rgba(74,144,217,.06);':''}">
+                <div class="hr-time">${label}</div>
+                <div class="hr-icon">${icon}</div>
+                <div class="hr-temp">${temp}°</div>
+                <div class="hr-rain">${prob>0?prob+'%':'—'}</div>
+                ${capeHtml}
+            </div>`;
+        }
+        document.getElementById('hourly-strip').innerHTML=html;
+    } catch(e) {
+        console.warn('Hourly error:',e);
+        document.getElementById('hourly-strip').innerHTML='<div style="color:var(--mute);font-size:12px;padding:8px;">Forecast unavailable</div>';
     }
+}
+
+function setCape(cape) {
+    document.getElementById('cape-section').style.display='block';
+    const num=document.getElementById('cape-num'), bar=document.getElementById('cape-bar'), txt=document.getElementById('cape-text');
+    num.textContent=Math.round(cape)+' J/kg';
+    const pct=Math.min(cape/4000*100,100);
+    bar.style.width=pct+'%';
+    if(cape>2500){num.style.color='var(--red)';bar.style.background='linear-gradient(90deg,#ffb300,#ff3b3b)';txt.textContent='EXPLOSIVE';txt.style.color='var(--red)';}
+    else if(cape>1500){num.style.color='#ffb300';bar.style.background='#ffb300';txt.textContent='MODERATE';txt.style.color='#ffb300';}
+    else if(cape>500){num.style.color='#ffd600';bar.style.background='#ffd600';txt.textContent='LOW–MOD';txt.style.color='#ffd600';}
+    else{num.style.color='var(--dim)';bar.style.background='var(--mute)';txt.textContent='LOW';txt.style.color='var(--mute)';}
+}
+
+// ================================================================
+// TERRAIN ZONES
+// ================================================================
+function updateTerrainZones() {
+    const {lat,lon}=HOME;
+    let go, avoid;
+    if(lat>43){
+        go='· Southern MN open prairie<br>· Northern IA flat farmland<br>· SW Wisconsin (open sections)<br>· Eastern SD plains';
+        avoid='· MN Boundary Waters forest<br>· Lake country near Duluth<br>· Dense timber corridors';
+    } else if(lat>40&&lon<-95){
+        go='· Central NE Platte River corridor<br>· Western IA corn & soy fields<br>· SW Iowa open plains<br>· KS Turnpike corridor';
+        avoid='· Loess Hills bluffs (MO River)<br>· Eastern NE river valleys<br>· Any wooded creek bottoms';
+    } else if(lat>38&&lon<-90){
+        go='· I-70 corridor west into central MO<br>· Southern Iowa flat farmland<br>· Western Illinois fields<br>· Eastern Kansas plains';
+        avoid='· Southern MO Ozarks — dense trees<br>· River valleys with no escape routes<br>· Dense forest areas';
+    } else if(lat>35&&lon>=-95){
+        go='· Western KY/TN open farmland<br>· Central TN basin (Nashville area)<br>· SW Ohio flat ag land<br>· Northern MS delta';
+        avoid='· Appalachian foothills<br>· Cumberland Plateau<br>· Smoky Mountains region';
+    } else if(lon<-95&&lat<36){
+        go='· TX Panhandle — best anywhere in US<br>· Western OK open plains<br>· Central OK (I-35/I-40)<br>· Eastern NM high plains';
+        avoid='· East TX pine forests<br>· Edwards Plateau (rough terrain)<br>· Areas with no sky visibility';
+    } else {
+        go='· Open farmland with long sight lines<br>· North-south paved roads<br>· Areas east of known storm tracks';
+        avoid='· Dense forests or wooded terrain<br>· River valleys and hollows<br>· Areas with no eastward escape';
+    }
+    document.getElementById('zone-go').innerHTML=go;
+    document.getElementById('zone-avoid').innerHTML=avoid;
+}
+
+// ================================================================
+// REFRESH
+// ================================================================
+function refresh() {
+    const spin=document.getElementById('rspin');
+    if(spin) spin.style.animation='spin .5s linear infinite';
+    Promise.all([fetchAlerts(),fetchConditions(),fetchHourly(),loadRadar()])
+        .finally(()=>{ if(spin) spin.style.animation='none'; });
 }
 
 // ================================================================
 // CLOCK
 // ================================================================
 function updateClock() {
-    document.getElementById('clock').textContent =
-        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const now=new Date();
+    const local=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const utcH=String(now.getUTCHours()).padStart(2,'0');
+    const utcM=String(now.getUTCMinutes()).padStart(2,'0');
+    document.getElementById('clock').textContent=`${local} · ${utcH}${utcM}Z`;
 }
 
 // ================================================================
-// INIT
+// BOOT
 // ================================================================
 updateClock();
-setInterval(updateClock, 30000);
+setInterval(updateClock, 15000);
+setInterval(() => { fetchAlerts(); fetchConditions(); }, 2*60*1000);
+setInterval(loadRadar, 2*60*1000);
 
-loadRadar();
-setInterval(loadRadar, REFRESH);
-
-fetchAlerts();
-setInterval(fetchAlerts, REFRESH);
+initLocation();
 </script>
-
 </body>
 </html>
