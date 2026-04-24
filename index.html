@@ -5,1392 +5,1221 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Storm Chase HQ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root {
-            --bg:       #06060f;
-            --bg2:      #0b0b18;
-            --bg3:      #111124;
-            --glass:    rgba(255,255,255,0.03);
-            --border:   rgba(255,255,255,0.07);
-            --blue:     #4a90d9;
-            --blue-dim: #1e3a5f;
-            --purple:   #9d44ff;
-            --red:      #ff3b3b;
-            --orange:   #ff8c00;
-            --yellow:   #ffd600;
-            --green:    #00c853;
-            --text:     #e8e8f0;
-            --dim:      #7a7a9a;
-            --mute:     #3a3a58;
-        }
         * { margin:0; padding:0; box-sizing:border-box; }
-        html { scroll-behavior: smooth; }
+        html, body { height:100%; overflow:hidden; background:#04091a; }
         body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-size: 14px;
-            -webkit-font-smoothing: antialiased;
+            font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+            color:#e8eef8;
+            -webkit-font-smoothing:antialiased;
+            overscroll-behavior:none;
+            -webkit-tap-highlight-color:transparent;
         }
+        #root { position:fixed; inset:0; z-index:10; }
+        #map-mount { position:fixed; inset:0; z-index:1; }
+        #map { width:100%; height:100%; }
 
-        /* ── HEADER ── */
-        .header {
-            background: rgba(6,6,15,0.96);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-            padding: 12px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 1100;
+        /* Deep blue map tint */
+        .leaflet-tile-pane { filter:brightness(.72) saturate(1.3) hue-rotate(198deg); }
+        .leaflet-control-zoom { display:none; }
+        .leaflet-control-attribution {
+            background:rgba(4,9,26,.6)!important; color:rgba(255,255,255,.25)!important;
+            font-size:9px!important; border-radius:6px!important;
         }
-        .header-left { display:flex; align-items:center; gap:10px; }
-        .header-logo {
-            width:38px; height:38px;
-            background: linear-gradient(135deg,#1a2a50,#2a5090);
-            border-radius:11px;
-            display:flex; align-items:center; justify-content:center;
-            font-size:20px; flex-shrink:0;
-            box-shadow: 0 0 18px rgba(74,144,217,0.25);
+        .leaflet-popup-content-wrapper {
+            background:rgba(7,14,36,.96)!important; color:#e8eef8!important;
+            border:1px solid rgba(100,148,255,.22)!important;
+            border-radius:14px!important; backdrop-filter:blur(20px);
+            box-shadow:0 8px 32px rgba(0,0,0,.5)!important;
         }
-        .header-title { font-size:16px; font-weight:800; color:#fff; letter-spacing:0.3px; line-height:1.2; }
-        .header-loc { font-size:11px; color:var(--dim); display:flex; align-items:center; gap:5px; margin-top:2px; }
-        .loc-dot { width:6px; height:6px; background:var(--green); border-radius:50%; box-shadow:0 0 8px var(--green); flex-shrink:0; }
-        .header-right { text-align:right; }
-        .alert-badge {
-            display:inline-flex; align-items:center; gap:4px;
-            padding:4px 10px; border-radius:20px;
-            font-size:11px; font-weight:700; letter-spacing:0.3px;
-            background:rgba(255,59,59,0.12); border:1px solid rgba(255,59,59,0.25); color:var(--red);
-        }
-        .alert-badge.clear { background:rgba(0,200,83,0.1); border-color:rgba(0,200,83,0.2); color:var(--green); }
-        .clock { font-size:11px; color:var(--mute); margin-top:5px; font-variant-numeric:tabular-nums; }
+        .leaflet-popup-tip { background:rgba(7,14,36,.96)!important; }
+        .leaflet-popup-close-button { color:#8896b8!important; }
 
-        /* ── GPS BAR ── */
-        .gps-bar {
-            display:flex; align-items:center; justify-content:center; gap:8px;
-            padding:10px 16px;
-            background:rgba(74,144,217,0.05);
-            border-bottom:1px solid rgba(74,144,217,0.1);
-            font-size:12px; color:var(--dim);
+        @keyframes pulseRing {
+            0%   { transform:scale(1); opacity:.6; }
+            100% { transform:scale(3.2); opacity:0; }
         }
-        .spinner { width:13px; height:13px; border:2px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .7s linear infinite; }
         @keyframes spin { to { transform:rotate(360deg); } }
+        @keyframes fadeUp {
+            from { opacity:0; transform:translateY(16px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity:0; } to { opacity:1; }
+        }
+        @keyframes shimmer {
+            0%   { background-position:200% 0; }
+            100% { background-position:-200% 0; }
+        }
+        @keyframes glowPulseRed {
+            0%,100% { box-shadow:0 0 20px rgba(255,61,61,.25),0 0 0 1px rgba(255,61,61,.2); }
+            50%      { box-shadow:0 0 40px rgba(255,61,61,.5),0 0 0 1px rgba(255,61,61,.4); }
+        }
+        @keyframes glowPulsePurple {
+            0%,100% { box-shadow:0 0 20px rgba(191,90,242,.3); }
+            50%      { box-shadow:0 0 50px rgba(191,90,242,.7); }
+        }
+        @keyframes float {
+            0%,100% { transform:translateY(0); }
+            50%      { transform:translateY(-6px); }
+        }
+        @keyframes scanline {
+            from { background-position:0 0; }
+            to   { background-position:0 100px; }
+        }
+        @keyframes lightning {
+            0%,96%,100% { opacity:0; }
+            97%          { opacity:.04; }
+            98%          { opacity:0; }
+            99%          { opacity:.06; }
+        }
+        @keyframes slideUp {
+            from { transform:translateY(100%); }
+            to   { transform:translateY(0); }
+        }
+        @keyframes refreshBlink {
+            0%,100% { opacity:1; }
+            50%      { opacity:.4; }
+        }
 
-        /* ── ALERT BANNER ── */
-        .alert-banner {
-            padding:12px 16px; text-align:center;
-            font-weight:700; font-size:13px; letter-spacing:.8px; text-transform:uppercase;
+        /* Scrollable panels */
+        .panel-scroll {
+            overflow-y:auto; overscroll-behavior:contain;
+            -webkit-overflow-scrolling:touch;
         }
-        .alert-banner.clear     { background:#040f08; color:var(--green); border-bottom:1px solid rgba(0,200,83,0.12); }
-        .alert-banner.watch     { background:#120900; color:#ffb300; border-bottom:1px solid rgba(255,179,0,0.15); }
-        .alert-banner.warning   { background:#120000; color:var(--red); border-bottom:1px solid rgba(255,59,59,0.2); animation:pulse-red 1.2s ease-in-out infinite; }
-        .alert-banner.emergency { background:#0d0020; color:#cc44ff; border-bottom:1px solid rgba(204,68,255,0.25); animation:pulse-purple .7s ease-in-out infinite; }
-        @keyframes pulse-red    { 0%,100%{background:#120000;} 50%{background:#200000;} }
-        @keyframes pulse-purple { 0%,100%{background:#0d0020;} 50%{background:#160035;} }
+        .panel-scroll::-webkit-scrollbar { display:none; }
 
-        /* ── MAP ── */
-        #map { height:56vh; width:100%; }
-        .map-wrap { position:relative; }
-        .radar-badge {
-            position:absolute; bottom:8px; left:8px; z-index:500;
-            background:rgba(6,6,15,0.88); backdrop-filter:blur(8px);
-            border:1px solid var(--border); color:var(--dim);
-            font-size:10px; font-weight:700; padding:4px 9px; border-radius:20px;
-            letter-spacing:.6px; text-transform:uppercase;
+        /* Custom range slider */
+        input[type=range] { -webkit-appearance:none; appearance:none; background:transparent; width:100%; cursor:pointer; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance:none;
+            width:22px; height:22px; border-radius:50%;
+            background:#4d94ff;
+            margin-top:-9px;
+            border:3px solid rgba(255,255,255,.9);
+            box-shadow:0 0 14px rgba(77,148,255,.8);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            height:4px; border-radius:2px;
         }
 
-        /* ── MAP CONTROLS ── */
-        .map-controls {
-            display:flex; gap:7px; padding:10px 16px;
-            background:var(--bg2); border-bottom:1px solid var(--border);
-            overflow-x:auto; -webkit-overflow-scrolling:touch;
+        /* Glass morphism utility */
+        .glass {
+            background:rgba(4,9,26,.86);
+            backdrop-filter:blur(24px);
+            -webkit-backdrop-filter:blur(24px);
+            border:1px solid rgba(100,148,255,.14);
         }
-        .map-controls::-webkit-scrollbar { display:none; }
-        .mc-btn {
-            flex-shrink:0; padding:6px 13px;
-            background:var(--bg3); border:1px solid var(--border);
-            border-radius:20px; color:var(--dim);
-            font-size:11px; font-weight:600; cursor:pointer;
-            white-space:nowrap; transition:all .15s; font-family:inherit;
-        }
-        .mc-btn.on { background:rgba(74,144,217,0.12); border-color:rgba(74,144,217,0.35); color:var(--blue); }
 
-        /* ── CONDITIONS STRIP ── */
-        .cond-strip { display:flex; overflow-x:auto; -webkit-overflow-scrolling:touch; border-bottom:1px solid var(--border); }
-        .cond-strip::-webkit-scrollbar { display:none; }
-        .cond-item { flex:0 0 auto; padding:13px 16px; text-align:center; min-width:76px; border-right:1px solid var(--border); background:var(--bg2); }
-        .cond-lbl { font-size:9px; font-weight:700; color:var(--mute); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:5px; }
-        .cond-val { font-size:21px; font-weight:700; color:#fff; line-height:1; font-variant-numeric:tabular-nums; }
-        .cond-sub { font-size:10px; color:var(--dim); margin-top:3px; }
-
-        /* ── SECTIONS ── */
-        .section { padding:18px 16px; border-bottom:1px solid rgba(255,255,255,0.04); }
-        .sec-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-        .sec-title { font-size:10px; font-weight:700; color:var(--blue); letter-spacing:2px; text-transform:uppercase; }
-        .sec-meta  { font-size:11px; color:var(--mute); }
-
-        /* ── CARDS ── */
-        .card { background:var(--glass); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; }
-
-        /* ── ALERT CARDS ── */
-        .alert-card {
-            background:var(--glass); border:1px solid var(--border); border-left:3px solid var(--mute);
-            border-radius:12px; padding:14px 14px 12px 16px; margin-bottom:9px;
-            cursor:pointer; transition:transform .12s, background .12s;
-            -webkit-tap-highlight-color:transparent;
-        }
-        .alert-card:active { transform:scale(0.985); background:rgba(255,255,255,0.05); }
-        .alert-card.tornado-emergency { border-left-color:#cc44ff; }
-        .alert-card.tornado-warning   { border-left-color:var(--red); }
-        .alert-card.tornado-watch     { border-left-color:#ffb300; }
-        .alert-card.severe-warning    { border-left-color:var(--yellow); }
-        .ac-top  { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
-        .ac-tag  { display:inline-block; padding:3px 9px; border-radius:20px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; }
-        .tag-em  { background:rgba(204,68,255,.15); color:#cc44ff; }
-        .tag-tw  { background:rgba(255,59,59,.15);  color:var(--red); }
-        .tag-wch { background:rgba(255,179,0,.15);  color:#ffb300; }
-        .tag-sev { background:rgba(255,214,0,.15);  color:var(--yellow); }
-        .ac-dist { font-size:13px; font-weight:700; color:var(--blue); white-space:nowrap; }
-        .ac-area { font-size:12px; color:var(--dim); margin-top:8px; margin-bottom:5px; }
-        .ac-meta { font-size:11px; color:var(--mute); }
-        .no-alerts { text-align:center; padding:24px 16px; color:var(--green); font-size:13px; font-weight:500; }
-        .no-alerts-icon { font-size:36px; display:block; margin-bottom:10px; opacity:.7; }
-
-        /* ── CHASE DAY ── */
-        .chase-card { background:var(--glass); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
-        .chase-top { padding:18px; display:flex; align-items:center; gap:16px; }
-        .chase-icon-wrap { width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:28px; flex-shrink:0; }
-        .chase-rating { font-size:22px; font-weight:800; line-height:1.1; }
-        .chase-detail { font-size:12px; color:var(--dim); margin-top:5px; line-height:1.55; }
-
-        /* CAPE bar */
-        .cape-section { padding:0 18px 18px; }
-        .cape-wrap { background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:14px; }
-        .cape-info { flex-shrink:0; }
-        .cape-lbl2 { font-size:9px; color:var(--mute); text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:2px; }
-        .cape-num  { font-size:16px; font-weight:800; }
-        .cape-bar-outer { flex:1; height:6px; background:var(--bg3); border-radius:3px; overflow:hidden; }
-        .cape-bar-inner { height:100%; border-radius:3px; transition:width .9s ease; }
-        .cape-text { font-size:11px; font-weight:700; white-space:nowrap; }
-
-        /* SPC embed */
-        .spc-section { border-top:1px solid var(--border); padding:14px; }
-        .spc-lbl { font-size:9px; color:var(--mute); text-transform:uppercase; letter-spacing:1.5px; font-weight:700; margin-bottom:10px; }
-        .spc-img-wrap { border-radius:8px; overflow:hidden; background:#000; }
-        .spc-img-wrap img { width:100%; max-width:420px; display:block; margin:0 auto; }
-        .spc-btns { display:flex; gap:8px; margin-top:10px; }
-        .spc-btn { flex:1; text-align:center; background:var(--bg3); border:1px solid var(--border); color:var(--blue); font-size:12px; font-weight:600; padding:9px; border-radius:8px; text-decoration:none; transition:background .15s; display:block; }
-        .spc-btn:active { background:var(--blue-dim); color:#fff; }
-
-        /* ── HOURLY ── */
-        .hourly-strip { display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:3px; }
-        .hourly-strip::-webkit-scrollbar { display:none; }
-        .hr-card { flex:0 0 auto; background:var(--glass); border:1px solid var(--border); border-radius:10px; padding:12px 10px; text-align:center; min-width:62px; }
-        .hr-time  { font-size:10px; color:var(--mute); font-weight:600; margin-bottom:5px; }
-        .hr-icon  { font-size:20px; margin-bottom:4px; }
-        .hr-temp  { font-size:14px; font-weight:700; color:#fff; }
-        .hr-rain  { font-size:10px; color:var(--blue); font-weight:600; margin-top:3px; }
-        .hr-cape  { font-size:9px; font-weight:800; margin-top:3px; text-transform:uppercase; letter-spacing:.5px; }
-        .cape-hi  { color:var(--red); }
-        .cape-md  { color:#ffb300; }
-
-        /* ── POSITIONING ── */
-        .pos-card { background:var(--glass); border:1px solid var(--border); border-radius:12px; padding:16px; }
-        .pos-card.active { border-color:rgba(255,179,0,.4); background:rgba(255,179,0,.04); }
-        .pos-rule { display:flex; gap:10px; margin-bottom:10px; font-size:13px; line-height:1.55; }
-        .pos-icon { font-size:16px; flex-shrink:0; margin-top:1px; }
-        .pos-dim  { color:var(--dim); }
-        .pos-hi   { color:#fff; font-weight:600; }
-        .map-link {
-            display:flex; align-items:center; justify-content:center; gap:6px;
-            background:rgba(74,144,217,.08); border:1px solid rgba(74,144,217,.22);
-            color:var(--blue); padding:11px; border-radius:10px; margin-top:12px;
-            text-decoration:none; font-weight:600; font-size:13px; transition:background .15s;
-        }
-        .map-link:active { background:rgba(74,144,217,.16); }
-
-        /* ── ZONES ── */
-        .zone-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-        .zone-card { background:var(--glass); border:1px solid var(--border); border-radius:12px; padding:14px; }
-        .zone-card.go    { border-top:2px solid var(--green); }
-        .zone-card.avoid { border-top:2px solid var(--red); }
-        .zone-icon  { font-size:20px; margin-bottom:7px; }
-        .zone-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
-        .zone-card.go .zone-label    { color:var(--green); }
-        .zone-card.avoid .zone-label { color:var(--red); }
-        .zone-body { font-size:11px; color:var(--dim); line-height:1.75; }
-
-        /* ── CHASER CARDS ── */
-        .chaser-card {
-            display:flex; align-items:center; gap:12px;
-            background:var(--glass); border:1px solid var(--border); border-radius:12px;
-            padding:13px 14px; margin-bottom:8px; text-decoration:none;
-            cursor:pointer; transition:transform .1s, background .12s;
-            -webkit-tap-highlight-color:transparent;
-        }
-        .chaser-card:active { transform:scale(0.985); background:rgba(255,255,255,0.05); }
-        .ch-avatar { width:42px; height:42px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
-        .ch-info { flex:1; min-width:0; }
-        .ch-name   { font-size:14px; font-weight:700; color:#fff; margin-bottom:1px; }
-        .ch-handle { font-size:11px; color:var(--blue); font-weight:600; margin-bottom:3px; }
-        .ch-desc   { font-size:11px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .ch-arrow  { color:var(--mute); font-size:16px; flex-shrink:0; }
-
-        /* ── QUICK LINKS ── */
-        .quick-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-        .ql {
-            background:var(--glass); border:1px solid var(--border); border-radius:12px;
-            padding:14px 8px; text-decoration:none; color:var(--text);
-            text-align:center; font-size:11px; font-weight:600; display:block;
-            transition:background .12s, transform .1s; -webkit-tap-highlight-color:transparent;
-        }
-        .ql:active { transform:scale(0.95); background:rgba(74,144,217,.1); }
-        .ql-icon  { font-size:24px; display:block; margin-bottom:6px; }
-        .ql-label { color:var(--dim); }
-
-        /* ── REFRESH + FOOTER ── */
-        .refresh-btn {
-            display:flex; align-items:center; justify-content:center; gap:8px;
-            width:100%; background:rgba(74,144,217,.07); border:1px solid rgba(74,144,217,.18);
-            color:var(--blue); padding:11px; border-radius:10px; font-size:13px;
-            font-weight:600; cursor:pointer; margin-top:12px; font-family:inherit;
-            transition:background .15s; letter-spacing:.3px;
-        }
-        .refresh-btn:active { background:rgba(74,144,217,.14); }
-        .footer { padding:16px; text-align:center; color:var(--mute); font-size:11px; border-top:1px solid var(--border); }
-        .footer span { color:var(--dim); }
-
-        /* ── SETTINGS BUTTON ── */
-        .settings-btn {
-            background:var(--bg3); border:1px solid var(--border);
-            color:var(--dim); width:34px; height:34px; border-radius:10px;
-            display:flex; align-items:center; justify-content:center;
-            font-size:16px; cursor:pointer; flex-shrink:0;
-            transition:background .15s, color .15s;
-        }
-        .settings-btn:active { background:rgba(74,144,217,.12); color:var(--blue); }
-
-        /* ── SETTINGS MODAL ── */
-        .modal-overlay {
-            position:fixed; inset:0; background:rgba(0,0,0,.7);
-            backdrop-filter:blur(6px); z-index:2000;
-            display:flex; align-items:flex-end; justify-content:center;
-            opacity:0; pointer-events:none; transition:opacity .2s;
-        }
-        .modal-overlay.open { opacity:1; pointer-events:all; }
-        .modal {
-            background:var(--bg2); border:1px solid var(--border);
-            border-radius:20px 20px 0 0; width:100%; max-width:540px;
-            padding:20px 20px 36px;
-            transform:translateY(100%); transition:transform .25s cubic-bezier(.4,0,.2,1);
-        }
-        .modal-overlay.open .modal { transform:translateY(0); }
-        .modal-handle {
-            width:36px; height:4px; background:var(--mute);
-            border-radius:2px; margin:0 auto 18px;
-        }
-        .modal-title { font-size:13px; font-weight:800; color:#fff; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:20px; }
-        .setting-row {
-            display:flex; align-items:center; justify-content:space-between;
-            padding:12px 0; border-bottom:1px solid rgba(255,255,255,.05);
-        }
-        .setting-row:last-child { border-bottom:none; }
-        .setting-label { font-size:13px; color:var(--text); font-weight:500; }
-        .setting-sub   { font-size:11px; color:var(--mute); margin-top:2px; }
-        /* Toggle switch */
-        .toggle { position:relative; width:44px; height:26px; flex-shrink:0; }
-        .toggle input { opacity:0; width:0; height:0; }
-        .toggle-track {
-            position:absolute; inset:0; background:var(--mute);
-            border-radius:13px; cursor:pointer; transition:background .2s;
-        }
-        .toggle input:checked + .toggle-track { background:var(--blue); }
-        .toggle-thumb {
-            position:absolute; top:3px; left:3px;
-            width:20px; height:20px; background:#fff;
-            border-radius:50%; transition:transform .2s; pointer-events:none;
-        }
-        .toggle input:checked ~ .toggle-thumb { transform:translateX(18px); }
-        /* Checkbox rows */
-        .check-group { padding:4px 0 8px; }
-        .check-row {
-            display:flex; align-items:center; gap:10px;
-            padding:8px 0; cursor:pointer;
-        }
-        .check-box {
-            width:20px; height:20px; border-radius:6px;
-            border:2px solid var(--mute); background:transparent;
-            display:flex; align-items:center; justify-content:center;
-            flex-shrink:0; transition:background .15s, border-color .15s;
-        }
-        .check-box.checked { background:var(--blue); border-color:var(--blue); }
-        .check-box.checked::after { content:'✓'; color:#fff; font-size:12px; font-weight:800; }
-        .check-lbl { font-size:13px; }
-        .check-em  { color:#cc44ff; font-weight:700; }
-        .check-tw  { color:var(--red); font-weight:700; }
-        .check-wch { color:#ffb300; font-weight:700; }
-        .check-sev { color:var(--yellow); font-weight:600; }
-        /* Distance slider */
-        .dist-row { display:flex; align-items:center; gap:12px; width:100%; }
-        .dist-slider {
-            flex:1; -webkit-appearance:none; appearance:none;
-            height:4px; background:var(--mute); border-radius:2px; outline:none;
-        }
-        .dist-slider::-webkit-slider-thumb {
-            -webkit-appearance:none; width:22px; height:22px;
-            background:var(--blue); border-radius:50%; cursor:pointer;
-            border:3px solid #fff; box-shadow:0 0 8px rgba(74,144,217,.5);
-        }
-        .dist-val { font-size:14px; font-weight:800; color:var(--blue); min-width:52px; text-align:right; }
-        /* Request notif btn */
-        .notif-btn {
-            width:100%; padding:11px; background:rgba(74,144,217,.08);
-            border:1px solid rgba(74,144,217,.22); color:var(--blue);
-            border-radius:10px; font-size:13px; font-weight:600;
-            cursor:pointer; font-family:inherit; transition:background .15s;
-            margin-top:4px;
-        }
-        .notif-btn:active { background:rgba(74,144,217,.18); }
-        .notif-status { font-size:11px; color:var(--mute); text-align:center; margin-top:6px; }
-
-        /* ── PULSE RING (user dot) ── */
-        @keyframes pulse-ring {
-            0%   { transform:scale(1);   opacity:.5; }
-            100% { transform:scale(2.8); opacity:0; }
+        /* Particle canvas */
+        #atmos-canvas {
+            position:fixed; inset:0; z-index:2;
+            pointer-events:none;
+            opacity:.6;
         }
     </style>
 </head>
 <body>
+<canvas id="atmos-canvas"></canvas>
+<div id="map-mount"><div id="map"></div></div>
+<div id="root"></div>
 
-<!-- GPS Bar -->
-<div class="gps-bar" id="gps-bar">
-    <div class="spinner"></div>
-    <span>Requesting your location for accurate alerts…</span>
-</div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
 
-<!-- Header -->
-<div class="header">
-    <div class="header-left">
-        <div class="header-logo">🌪</div>
-        <div>
-            <div class="header-title">STORM CHASE HQ</div>
-            <div class="header-loc">
-                <span class="loc-dot"></span>
-                <span id="loc-name">Locating…</span>
-            </div>
-        </div>
-    </div>
-    <div class="header-right" style="display:flex;align-items:center;gap:10px;">
-        <button class="settings-btn" onclick="openSettings()" title="Alert Settings">⚙</button>
-        <div>
-            <div class="alert-badge clear" id="alert-badge">All Clear</div>
-            <div class="clock" id="clock">—</div>
-        </div>
-    </div>
-</div>
+// ─────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────
+const PRIORITY = {
+    'Tornado Emergency':5,'Tornado Warning':4,'Tornado Watch':3,
+    'Severe Thunderstorm Warning':2,'Severe Thunderstorm Watch':1
+};
+const ALERT_COLOR = {
+    'Tornado Emergency':'#bf5af2','Tornado Warning':'#ff3d3d',
+    'Tornado Watch':'#ff9500','Severe Thunderstorm Warning':'#ffd60a',
+    'Severe Thunderstorm Watch':'#a8e063'
+};
+const ALERT_TAG = {
+    'Tornado Emergency':{ label:'TORNADO EMERGENCY', bg:'rgba(191,90,242,.2)', color:'#bf5af2' },
+    'Tornado Warning':  { label:'TORNADO WARNING',   bg:'rgba(255,61,61,.18)', color:'#ff3d3d' },
+    'Tornado Watch':    { label:'TORNADO WATCH',     bg:'rgba(255,149,0,.18)', color:'#ff9500' },
+    'Severe Thunderstorm Warning': { label:'SVR TSTM WARN', bg:'rgba(255,214,10,.15)', color:'#ffd60a' },
+    'Severe Thunderstorm Watch':   { label:'SVR TSTM WATCH',bg:'rgba(168,224,99,.12)', color:'#a8e063' },
+};
+const LEVEL_CFG = {
+    emergency:{ color:'#bf5af2', glow:'rgba(191,90,242,.5)', label:'TORNADO EMERGENCY', icon:'⚡', bg:'linear-gradient(180deg,rgba(40,0,80,.9) 0%,rgba(4,9,26,.0) 60%)' },
+    warning:  { color:'#ff3d3d', glow:'rgba(255,61,61,.5)',  label:'TORNADO WARNING',   icon:'🌪️',bg:'linear-gradient(180deg,rgba(80,0,0,.9) 0%,rgba(4,9,26,.0) 60%)' },
+    watch:    { color:'#ff9500', glow:'rgba(255,149,0,.4)',  label:'TORNADO WATCH',     icon:'⚠️',bg:'linear-gradient(180deg,rgba(50,25,0,.9) 0%,rgba(4,9,26,.0) 60%)' },
+    advisory: { color:'#ffd60a', glow:'rgba(255,214,10,.3)', label:'ADVISORY',          icon:'⛈️',bg:'linear-gradient(180deg,rgba(40,35,0,.9) 0%,rgba(4,9,26,.0) 60%)' },
+    clear:    { color:'#30d158', glow:'rgba(48,209,88,.3)',  label:'ALL CLEAR',         icon:'✅',bg:'linear-gradient(180deg,rgba(0,25,10,.8) 0%,rgba(4,9,26,.0) 60%)' },
+};
 
-<!-- Alert Banner -->
-<div class="alert-banner clear" id="alert-banner">INITIALIZING…</div>
-
-<!-- Map -->
-<div class="map-wrap">
-    <div id="map"></div>
-    <div class="radar-badge" id="radar-badge">RADAR LOADING…</div>
-</div>
-
-<!-- Map Controls -->
-<div class="map-controls">
-    <button class="mc-btn on"  id="btn-street" onclick="setLayer('street')">Street</button>
-    <button class="mc-btn"     id="btn-sat"    onclick="setLayer('sat')">Satellite</button>
-    <button class="mc-btn on"  id="btn-radar"  onclick="toggleRadar()">Radar ON</button>
-    <button class="mc-btn on"  id="btn-polys"  onclick="togglePolygons()">Alerts ON</button>
-    <button class="mc-btn"                     onclick="centerMe()">📍 My Location</button>
-</div>
-
-<!-- Conditions Strip -->
-<div class="cond-strip">
-    <div class="cond-item">
-        <div class="cond-lbl">TEMP</div>
-        <div class="cond-val" id="c-temp">—</div>
-        <div class="cond-sub">feels <span id="c-feels">—</span></div>
-    </div>
-    <div class="cond-item">
-        <div class="cond-lbl">WIND</div>
-        <div class="cond-val" id="c-wind">—</div>
-        <div class="cond-sub"><span id="c-wdir">—</span> mph</div>
-    </div>
-    <div class="cond-item">
-        <div class="cond-lbl">GUSTS</div>
-        <div class="cond-val" id="c-gust">—</div>
-        <div class="cond-sub">mph</div>
-    </div>
-    <div class="cond-item">
-        <div class="cond-lbl">DEWPT</div>
-        <div class="cond-val" id="c-dew">—</div>
-        <div class="cond-sub">°F</div>
-    </div>
-    <div class="cond-item">
-        <div class="cond-lbl">HUMID</div>
-        <div class="cond-val" id="c-hum">—</div>
-        <div class="cond-sub">%</div>
-    </div>
-    <div class="cond-item">
-        <div class="cond-lbl">PRESSURE</div>
-        <div class="cond-val" id="c-pres" style="font-size:16px;">—</div>
-        <div class="cond-sub">hPa</div>
-    </div>
-</div>
-
-<!-- Active Alerts -->
-<div class="section">
-    <div class="sec-hdr">
-        <div class="sec-title">Active Alerts</div>
-        <div class="sec-meta" id="radius-label">200mi radius</div>
-    </div>
-    <div id="alerts-list">
-        <div class="card" style="height:80px; background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border:none;"></div>
-    </div>
-    <button class="refresh-btn" onclick="refresh()">
-        <span id="rspin">↻</span> Refresh All Data
-    </button>
-</div>
-
-<!-- Chase Day -->
-<div class="section">
-    <div class="sec-title" style="margin-bottom:14px;">Today's Chase Setup</div>
-    <div class="chase-card">
-        <div class="chase-top">
-            <div class="chase-icon-wrap" id="chase-wrap" style="background:linear-gradient(135deg,#1a2a4a,#2a4a7a);">
-                <span id="chase-icon">🌤</span>
-            </div>
-            <div>
-                <div class="chase-rating" id="chase-rating" style="color:#fff;">Checking…</div>
-                <div class="chase-detail" id="chase-detail">Loading Storm Prediction Center data…</div>
-            </div>
-        </div>
-        <!-- CAPE -->
-        <div class="cape-section" id="cape-section" style="display:none;">
-            <div class="cape-wrap">
-                <div class="cape-info">
-                    <div class="cape-lbl2">CAPE (Instability)</div>
-                    <div class="cape-num" id="cape-num">—</div>
-                </div>
-                <div style="flex:1;">
-                    <div class="cape-bar-outer">
-                        <div class="cape-bar-inner" id="cape-bar" style="width:0%;background:var(--green);"></div>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--mute);margin-top:3px;font-weight:600;">
-                        <span>LOW</span><span>MOD</span><span>HIGH</span>
-                    </div>
-                </div>
-                <div class="cape-text" id="cape-text">—</div>
-            </div>
-        </div>
-        <!-- SPC -->
-        <div class="spc-section">
-            <div class="spc-lbl">SPC Day 1 Outlook — Tornado Risk</div>
-            <div class="spc-img-wrap">
-                <img src="https://www.spc.noaa.gov/products/outlook/day1otlk_prt.gif"
-                     alt="SPC Day 1 Categorical Outlook"
-                     onerror="this.parentElement.innerHTML='<div style=\'padding:14px;font-size:12px;color:var(--mute);text-align:center;\'>SPC image unavailable — <a href=\'https://www.spc.noaa.gov/products/outlook/\' target=\'_blank\' style=\'color:var(--blue);\'>View on SPC →</a></div>'"
-                />
-            </div>
-            <div class="spc-btns">
-                <a href="https://www.spc.noaa.gov/products/outlook/" target="_blank" class="spc-btn">Day 1</a>
-                <a href="https://www.spc.noaa.gov/products/outlook/day2otlk.html" target="_blank" class="spc-btn">Day 2</a>
-                <a href="https://www.spc.noaa.gov/products/watch/" target="_blank" class="spc-btn">Watches</a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Hourly -->
-<div class="section">
-    <div class="sec-hdr">
-        <div class="sec-title">Next 12 Hours</div>
-        <div class="sec-meta">scroll →</div>
-    </div>
-    <div class="hourly-strip" id="hourly-strip">
-        <div style="color:var(--mute);font-size:12px;padding:8px;">Loading forecast…</div>
-    </div>
-</div>
-
-<!-- Positioning -->
-<div class="section">
-    <div class="sec-title" style="margin-bottom:14px;">Positioning Advice</div>
-    <div class="pos-card" id="pos-card">
-        <div class="pos-rule">
-            <span class="pos-icon">✅</span>
-            <span class="pos-dim">No active tornado warnings in range right now.</span>
-        </div>
-        <div class="pos-rule">
-            <span class="pos-icon">🔑</span>
-            <span class="pos-dim">When a warning appears nearby, real-time positioning advice will show here.</span>
-        </div>
-        <div class="pos-rule">
-            <span class="pos-icon">📌</span>
-            <span class="pos-dim"><span class="pos-hi">Always east or southeast</span> of the tornado path — never north or west of a moving storm.</span>
-        </div>
-    </div>
-</div>
-
-<!-- Terrain Zones -->
-<div class="section">
-    <div class="sec-title" style="margin-bottom:14px;">Terrain — Chase Zones Near You</div>
-    <div class="zone-grid">
-        <div class="zone-card go">
-            <div class="zone-icon">✅</div>
-            <div class="zone-label">Go Zones</div>
-            <div class="zone-body" id="zone-go">Loading…</div>
-        </div>
-        <div class="zone-card avoid">
-            <div class="zone-icon">🚫</div>
-            <div class="zone-label">Avoid</div>
-            <div class="zone-body" id="zone-avoid">Loading…</div>
-        </div>
-    </div>
-    <p style="font-size:11px;color:var(--mute);margin-top:10px;line-height:1.65;">Tip: toggle <strong style="color:var(--dim);">Satellite</strong> in the map controls to visually check terrain before you drive out.</p>
-</div>
-
-<!-- Chasers -->
-<div class="section">
-    <div class="sec-title" style="margin-bottom:4px;">Top Storm Chasers on X</div>
-    <p style="font-size:11px;color:var(--mute);margin-bottom:14px;">Tap to open — real-time updates during chase days.</p>
-    <a class="chaser-card" href="https://x.com/ReedTimmerUSA" target="_blank">
-        <div class="ch-avatar" style="background:linear-gradient(135deg,#1a2a50,#2a50a0);">🌪</div>
-        <div class="ch-info">
-            <div class="ch-name">Reed Timmer</div>
-            <div class="ch-handle">@ReedTimmerUSA</div>
-            <div class="ch-desc">Most aggressive active chaser — real-time video & position updates</div>
-        </div>
-        <span class="ch-arrow">›</span>
-    </a>
-    <a class="chaser-card" href="https://x.com/basehunters" target="_blank">
-        <div class="ch-avatar" style="background:linear-gradient(135deg,#1a3a1a,#2a6a2a);">🎯</div>
-        <div class="ch-info">
-            <div class="ch-name">Basehunters</div>
-            <div class="ch-handle">@basehunters</div>
-            <div class="ch-desc">Pro team — excellent positioning info & live intercept footage</div>
-        </div>
-        <span class="ch-arrow">›</span>
-    </a>
-    <a class="chaser-card" href="https://x.com/PecosHank" target="_blank">
-        <div class="ch-avatar" style="background:linear-gradient(135deg,#2a1a00,#5a3a00);">🎥</div>
-        <div class="ch-info">
-            <div class="ch-name">Pecos Hank</div>
-            <div class="ch-handle">@PecosHank</div>
-            <div class="ch-desc">Incredible video quality — very consistent field updates</div>
-        </div>
-        <span class="ch-arrow">›</span>
-    </a>
-    <a class="chaser-card" href="https://x.com/NWSStLouis" target="_blank" id="nws-chaser">
-        <div class="ch-avatar" style="background:linear-gradient(135deg,#001a30,#003060);">📡</div>
-        <div class="ch-info">
-            <div class="ch-name">NWS (local office)</div>
-            <div class="ch-handle" id="nws-handle">@NWSStLouis</div>
-            <div class="ch-desc">Official local office — tornado warnings for your area first</div>
-        </div>
-        <span class="ch-arrow">›</span>
-    </a>
-    <a class="chaser-card" href="https://x.com/MaxVelocityWX" target="_blank">
-        <div class="ch-avatar" style="background:linear-gradient(135deg,#1a001a,#3a0050);">⚡</div>
-        <div class="ch-info">
-            <div class="ch-name">Max Velocity</div>
-            <div class="ch-handle">@MaxVelocityWX</div>
-            <div class="ch-desc">20+ chaser team — live severe weather coverage & real-time updates</div>
-        </div>
-        <span class="ch-arrow">›</span>
-    </a>
-</div>
-
-<!-- Quick Links -->
-<div class="section">
-    <div class="sec-title" style="margin-bottom:14px;">Quick Links</div>
-    <div class="quick-grid">
-        <a href="https://www.spc.noaa.gov/products/outlook/" target="_blank" class="ql"><span class="ql-icon">🌪</span><span class="ql-label">SPC Outlook</span></a>
-        <a href="https://radar.weather.gov" target="_blank" class="ql"><span class="ql-icon">📡</span><span class="ql-label">NWS Radar</span></a>
-        <a href="https://www.spotternetwork.org" target="_blank" class="ql"><span class="ql-icon">📍</span><span class="ql-label">Spotter Net</span></a>
-        <a href="https://alerts.weather.gov" target="_blank" class="ql"><span class="ql-icon">⚠️</span><span class="ql-label">All Alerts</span></a>
-        <a href="https://mesonet.agron.iastate.edu/radar/app/" target="_blank" class="ql"><span class="ql-icon">🌩</span><span class="ql-label">IEM Radar</span></a>
-        <a href="https://www.wunderground.com/wundermap" target="_blank" class="ql"><span class="ql-icon">🗺️</span><span class="ql-label">WunderMap</span></a>
-    </div>
-</div>
-
-<div class="footer">
-    Last updated: <span id="last-updated">—</span><br>
-    <span>Data: NWS · Open-Meteo · RainViewer · SPC</span>
-</div>
-
-<!-- Settings Modal -->
-<div class="modal-overlay" id="modal-overlay" onclick="closeSettingsOnBg(event)">
-    <div class="modal">
-        <div class="modal-handle"></div>
-        <div class="modal-title">Alert Settings</div>
-
-        <!-- Browser Notifications -->
-        <div class="setting-row">
-            <div>
-                <div class="setting-label">Browser Notifications</div>
-                <div class="setting-sub">Pop-up alerts even when tab is in background</div>
-            </div>
-            <label class="toggle">
-                <input type="checkbox" id="toggle-notif" onchange="toggleSetting('notificationsEnabled',this.checked)">
-                <div class="toggle-track"></div>
-                <div class="toggle-thumb"></div>
-            </label>
-        </div>
-        <button class="notif-btn" id="notif-perm-btn" onclick="requestNotifPermission()">Enable Browser Notifications</button>
-        <div class="notif-status" id="notif-perm-status"></div>
-
-        <!-- Sound -->
-        <div class="setting-row" style="margin-top:10px;">
-            <div>
-                <div class="setting-label">Sound Alerts</div>
-                <div class="setting-sub">Audio alarm when new alerts are detected</div>
-            </div>
-            <label class="toggle">
-                <input type="checkbox" id="toggle-sound" onchange="toggleSetting('soundEnabled',this.checked)">
-                <div class="toggle-track"></div>
-                <div class="toggle-thumb"></div>
-            </label>
-        </div>
-
-        <!-- Alert Types -->
-        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:0;">
-            <div class="setting-label" style="margin-bottom:4px;">Notify me for</div>
-            <div class="check-group" style="width:100%;">
-                <div class="check-row" onclick="toggleType('Tornado Emergency')">
-                    <div class="check-box" id="chk-te"></div>
-                    <span class="check-lbl check-em">⚡ Tornado Emergency</span>
-                </div>
-                <div class="check-row" onclick="toggleType('Tornado Warning')">
-                    <div class="check-box" id="chk-tw"></div>
-                    <span class="check-lbl check-tw">🌪 Tornado Warning</span>
-                </div>
-                <div class="check-row" onclick="toggleType('Tornado Watch')">
-                    <div class="check-box" id="chk-wch"></div>
-                    <span class="check-lbl check-wch">⚠ Tornado Watch</span>
-                </div>
-                <div class="check-row" onclick="toggleType('Severe Thunderstorm Warning')">
-                    <div class="check-box" id="chk-stw"></div>
-                    <span class="check-lbl check-sev">⛈ Severe Thunderstorm Warning</span>
-                </div>
-                <div class="check-row" onclick="toggleType('Severe Thunderstorm Watch')">
-                    <div class="check-box" id="chk-stwch"></div>
-                    <span class="check-lbl check-sev">⛅ Severe Thunderstorm Watch</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Distance -->
-        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
-            <div class="setting-label">Alert Distance Threshold</div>
-            <div class="dist-row">
-                <input type="range" class="dist-slider" id="dist-slider"
-                    min="25" max="300" step="25"
-                    oninput="updateDistLabel(this.value)" onchange="saveDist(this.value)">
-                <span class="dist-val" id="dist-val">100 mi</span>
-            </div>
-            <div class="setting-sub">Only alert if the event is within this distance</div>
-        </div>
-    </div>
-</div>
-
-<style>
-@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-</style>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-// ================================================================
-// STATE
-// ================================================================
-let HOME = { lat:38.7881, lon:-90.4974 };
-let userLoc = null;
-let locName = 'St. Charles, MO';
-const RADIUS_MI = 200;
-
-let mapPolys = [];
-let activeAlerts = [];
-let radarLayer = null;
-let showRadar = true;
-let showPolys = true;
-let homeMarker = null;
-let radiusCircle = null;
-
-// ================================================================
-// MAP
-// ================================================================
-const map = L.map('map', { center:[HOME.lat,HOME.lon], zoom:7 });
-
-const streetLayer = L.tileLayer(
-    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    { attribution:'© OpenStreetMap © CARTO', maxZoom:19 }
-).addTo(map);
-
-const satLayer = L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    { attribution:'© Esri', maxZoom:19 }
-);
-
-let currentBase = 'street';
-
-function setLayer(type) {
-    if (type === 'street' && currentBase !== 'street') {
-        map.removeLayer(satLayer); streetLayer.addTo(map); currentBase = 'street';
-        document.getElementById('btn-street').classList.add('on');
-        document.getElementById('btn-sat').classList.remove('on');
-    } else if (type === 'sat' && currentBase !== 'sat') {
-        map.removeLayer(streetLayer); satLayer.addTo(map); currentBase = 'sat';
-        document.getElementById('btn-sat').classList.add('on');
-        document.getElementById('btn-street').classList.remove('on');
-    }
-    if (radarLayer) { map.removeLayer(radarLayer); if(showRadar) radarLayer.addTo(map); }
-}
-
-function toggleRadar() {
-    showRadar = !showRadar;
-    const btn = document.getElementById('btn-radar');
-    btn.textContent = showRadar ? 'Radar ON' : 'Radar OFF';
-    btn.classList.toggle('on', showRadar);
-    if (radarLayer) { showRadar ? radarLayer.addTo(map) : map.removeLayer(radarLayer); }
-}
-
-function togglePolygons() {
-    showPolys = !showPolys;
-    const btn = document.getElementById('btn-polys');
-    btn.textContent = showPolys ? 'Alerts ON' : 'Alerts OFF';
-    btn.classList.toggle('on', showPolys);
-    mapPolys.forEach(l => showPolys ? l.addTo(map) : map.removeLayer(l));
-}
-
-function centerMe() {
-    if (userLoc) map.flyTo([userLoc.lat, userLoc.lon], 9, { duration:1.2 });
-}
-
-function placeUserMarker() {
-    const loc = userLoc || HOME;
-    if (homeMarker)  map.removeLayer(homeMarker);
-    if (radiusCircle) map.removeLayer(radiusCircle);
-
-    const icon = L.divIcon({
-        html:`<div style="position:relative;width:22px;height:22px;">
-            <div style="position:absolute;top:0;left:0;width:22px;height:22px;background:rgba(74,144,217,.2);border-radius:50%;animation:pulse-ring 2.2s ease-out infinite;"></div>
-            <div style="position:absolute;top:5px;left:5px;width:12px;height:12px;background:#4a90d9;border-radius:50%;border:2.5px solid #fff;box-shadow:0 0 12px rgba(74,144,217,.9);"></div>
-        </div>`,
-        iconSize:[22,22], iconAnchor:[11,11], className:''
-    });
-
-    homeMarker = L.marker([loc.lat,loc.lon],{icon})
-        .addTo(map)
-        .bindPopup(`<b>Your Location</b><br>${locName}`);
-
-    radiusCircle = L.circle([loc.lat,loc.lon],{
-        radius: RADIUS_MI*1609.34,
-        color:'rgba(74,144,217,.35)', weight:1.5, fillOpacity:.03, dashArray:'8,8'
-    }).addTo(map);
-
-    map.flyTo([loc.lat,loc.lon], 7, { duration:1.6 });
-}
-
-// ================================================================
-// RADAR (RainViewer)
-// ================================================================
-async function loadRadar() {
-    document.getElementById('radar-badge').textContent = 'RADAR LOADING…';
-    try {
-        const res  = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-        const data = await res.json();
-        const frames = data?.radar?.past;
-        if (!frames?.length) { document.getElementById('radar-badge').textContent = 'RADAR N/A'; return; }
-        const latest = frames[frames.length - 1];
-        const url = `https://tilecache.rainviewer.com${latest.path}/256/{z}/{x}/{y}/4/1_1.png`;
-        if (radarLayer) map.removeLayer(radarLayer);
-        radarLayer = L.tileLayer(url, { opacity:.72, attribution:'© RainViewer', zIndex:500 });
-        if (showRadar) radarLayer.addTo(map);
-        const t = new Date(latest.time * 1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-        document.getElementById('radar-badge').textContent = `RADAR ${t}`;
-    } catch(e) {
-        document.getElementById('radar-badge').textContent = 'RADAR ERROR';
-    }
-}
-
-// ================================================================
-// GEOLOCATION
-// ================================================================
-function initLocation() {
-    if (!navigator.geolocation) { hideGpsBar('Location unavailable — using St. Charles, MO'); onReady(); return; }
-    navigator.geolocation.getCurrentPosition(
-        async pos => {
-            userLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-            HOME = { ...userLoc };
-            try {
-                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${userLoc.lat}&lon=${userLoc.lon}`,{ headers:{'Accept-Language':'en'} });
-                const g = await r.json();
-                locName = (g.address?.city || g.address?.town || g.address?.county || 'Your Location');
-                const st = g.address?.state;
-                if (st) locName += ', ' + (g.address?.ISO3166_2_lvl4?.split('-')[1] || st.slice(0,2).toUpperCase());
-            } catch(_) { locName = 'Your Location'; }
-            document.getElementById('loc-name').textContent = locName;
-            hideGpsBar(null);
-            updateNWSHandle();
-            onReady();
-        },
-        err => {
-            console.log('GPS error:', err);
-            document.getElementById('loc-name').textContent = 'St. Charles, MO';
-            hideGpsBar('Location access denied — using St. Charles, MO');
-            onReady();
-        },
-        { timeout:9000, maximumAge:60000 }
-    );
-}
-
-function hideGpsBar(msg) {
-    const bar = document.getElementById('gps-bar');
-    if (msg) {
-        bar.innerHTML = `<span style="font-size:11px;color:var(--mute);">📍 ${msg}</span>`;
-        setTimeout(() => bar.style.display='none', 3500);
-    } else {
-        bar.style.display = 'none';
-    }
-}
-
-function updateNWSHandle() {
-    // Map lat ranges to approximate NWS office Twitter handles
-    const lat = HOME.lat, lon = HOME.lon;
-    let handle = '@NWS', href = 'https://x.com/NWS';
-    if      (lat>44)                     { handle='@NWSGoodHarbor';  href='https://x.com/NWSGoodHarbor'; }
-    else if (lat>42&&lon<-93)            { handle='@NWSMinneapolis'; href='https://x.com/NWSMinneapolis'; }
-    else if (lat>40&&lon<-95)            { handle='@NWSOmaha';       href='https://x.com/NWSOmaha'; }
-    else if (lat>39&&lon<-93&&lat<41)    { handle='@NWSKansasCity';  href='https://x.com/NWSKansasCity'; }
-    else if (lat>38&&lon<-90)            { handle='@NWSStLouis';     href='https://x.com/NWSStLouis'; }
-    else if (lat>36&&lon<-97)            { handle='@NWSTulsa';       href='https://x.com/NWSTulsa'; }
-    else if (lat>33&&lon<-96)            { handle='@NWSOklahomaCty'; href='https://x.com/NWSOklahomaCty'; }
-    else if (lon<-97&&lat<36)            { handle='@NWSAmarillo';    href='https://x.com/NWSAmarillo'; }
-    document.getElementById('nws-handle').textContent = handle;
-    document.getElementById('nws-chaser').href = href;
-}
-
-function onReady() {
-    placeUserMarker();
-    updateTerrainZones();
-    fetchAlerts();
-    fetchConditions();
-    fetchHourly();
-    loadRadar();
-}
-
-// ================================================================
+// ─────────────────────────────────────────────
 // UTILS
-// ================================================================
-function haversine(lat1,lon1,lat2,lon2) {
-    const R=3958.8, dL=(lat2-lat1)*Math.PI/180, dO=(lon2-lon1)*Math.PI/180;
+// ─────────────────────────────────────────────
+function haversine(lat1,lon1,lat2,lon2){
+    const R=3958.8,dL=(lat2-lat1)*Math.PI/180,dO=(lon2-lon1)*Math.PI/180;
     const a=Math.sin(dL/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dO/2)**2;
     return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
-function centroid(geom) {
-    if (!geom) return null;
-    let pts=[];
-    if      (geom.type==='Point')        return {lat:geom.coordinates[1],lon:geom.coordinates[0]};
-    else if (geom.type==='Polygon')      pts=geom.coordinates[0];
-    else if (geom.type==='MultiPolygon') pts=geom.coordinates[0][0];
-    if (!pts.length) return null;
-    return { lat:pts.reduce((s,c)=>s+c[1],0)/pts.length, lon:pts.reduce((s,c)=>s+c[0],0)/pts.length };
+function centroid(geom){
+    if(!geom)return null;
+    if(geom.type==='Point')return{lat:geom.coordinates[1],lon:geom.coordinates[0]};
+    const pts=geom.type==='Polygon'?geom.coordinates[0]:geom.coordinates[0][0];
+    if(!pts?.length)return null;
+    return{lat:pts.reduce((s,c)=>s+c[1],0)/pts.length,lon:pts.reduce((s,c)=>s+c[0],0)/pts.length};
 }
-function bearingDir(lat1,lon1,lat2,lon2) {
-    const dO=(lon2-lon1)*Math.PI/180;
-    const y=Math.sin(dO)*Math.cos(lat2*Math.PI/180);
+function bearingDir(lat1,lon1,lat2,lon2){
+    const dO=(lon2-lon1)*Math.PI/180,y=Math.sin(dO)*Math.cos(lat2*Math.PI/180);
     const x=Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180)-Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos(dO);
-    return ['N','NE','E','SE','S','SW','W','NW'][Math.round(((Math.atan2(y,x)*180/Math.PI+360)%360)/45)%8];
+    return['N','NE','E','SE','S','SW','W','NW'][Math.round(((Math.atan2(y,x)*180/Math.PI+360)%360)/45)%8];
 }
-function windDirStr(deg) {
-    return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(deg/22.5)%16];
+function windDirStr(d){return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(d/22.5)%16];}
+function wmoIcon(c){if(c===0)return'☀️';if(c<=2)return'⛅';if(c<=3)return'☁️';if(c<=49)return'🌫️';if(c<=59)return'🌦️';if(c<=69)return'🌨️';if(c<=79)return'❄️';if(c<=84)return'🌧️';return'⛈️';}
+function dewpt(tF,rh){const tC=(tF-32)*5/9,a=17.27,b=237.7,g=(a*tC/(b+tC))+Math.log(rh/100);return Math.round(b*g/(a-g)*9/5+32);}
+function statesForLoc(lat,lon){
+    if(lat>43)return'MN,WI,IA,SD,ND,MI,IL';
+    if(lat>41&&lon<-95)return'NE,IA,SD,KS,MN,MO,WI';
+    if(lat>41&&lon>=-95)return'IL,WI,IN,MI,OH,IA,MO';
+    if(lat>38&&lon<-93)return'KS,MO,NE,IA,OK,CO,IL';
+    if(lat>38&&lon>=-93)return'MO,IL,KY,IN,TN,AR,IA';
+    if(lat>35&&lon<-95)return'OK,KS,MO,AR,TX,CO,NM';
+    if(lat>35&&lon>=-95)return'TN,KY,AR,MO,AL,MS,GA';
+    if(lat<35&&lon<-95)return'TX,OK,NM,AR,LA,KS';
+    return'AL,AR,GA,IL,KS,KY,LA,MO,MS,OK,TN,TX';
 }
-function dewpt(tempF, rh) {
-    const tC=(tempF-32)*5/9, a=17.27, b=237.7;
-    const g=(a*tC/(b+tC))+Math.log(rh/100);
-    return Math.round(b*g/(a-g)*9/5+32);
-}
-function wmoIcon(c) {
-    if(c===0)return'☀️'; if(c<=2)return'⛅'; if(c<=3)return'☁️';
-    if(c<=49)return'🌫️'; if(c<=59)return'🌦️'; if(c<=69)return'🌨️';
-    if(c<=79)return'❄️'; if(c<=84)return'🌧️'; return'⛈️';
-}
-
-// ================================================================
-// ALERTS
-// ================================================================
-const PRIORITY = {'Tornado Emergency':5,'Tornado Warning':4,'Tornado Watch':3,'Severe Thunderstorm Warning':2,'Severe Thunderstorm Watch':1};
-const COLOR    = {'Tornado Emergency':'#cc44ff','Tornado Warning':'#ff3b3b','Tornado Watch':'#ffb300','Severe Thunderstorm Warning':'#ffd600','Severe Thunderstorm Watch':'#aacc00'};
-const CLS      = {'Tornado Emergency':'tornado-emergency','Tornado Warning':'tornado-warning','Tornado Watch':'tornado-watch','Severe Thunderstorm Warning':'severe-warning','Severe Thunderstorm Watch':'severe-warning'};
-const TAG      = {'Tornado Emergency':'tag-em','Tornado Warning':'tag-tw','Tornado Watch':'tag-wch','Severe Thunderstorm Warning':'tag-sev','Severe Thunderstorm Watch':'tag-sev'};
-
-function statesForLocation() {
-    const {lat,lon} = HOME;
-    if (lat>43)                     return 'MN,WI,IA,SD,ND,MI,IL';
-    if (lat>41&&lon<-95)            return 'NE,IA,SD,KS,MN,MO,WI';
-    if (lat>41&&lon>=-95)           return 'IL,WI,IN,MI,OH,IA,MO';
-    if (lat>38&&lon<-93)            return 'KS,MO,NE,IA,OK,CO,IL';
-    if (lat>38&&lon>=-93)           return 'MO,IL,KY,IN,TN,AR,IA';
-    if (lat>35&&lon<-95)            return 'OK,KS,MO,AR,TX,CO,NM';
-    if (lat>35&&lon>=-95)           return 'TN,KY,AR,MO,AL,MS,GA';
-    if (lat<35&&lon<-95)            return 'TX,OK,NM,AR,LA,KS';
-    return 'AL,AR,GA,IL,KS,KY,LA,MO,MS,OK,TN,TX';
+function getChaseRating(cape){
+    if(cape>=3000)return{label:'EXTREME',sub:'Exceptional instability — prime chase day',color:'#ff3d3d',icon:'🌪️',gradient:'linear-gradient(135deg,#3d0000,#7a0000)'};
+    if(cape>=2000)return{label:'HIGH',   sub:'Strong instability — good chase potential', color:'#ff9500',icon:'⛈️',gradient:'linear-gradient(135deg,#2d1500,#5a3000)'};
+    if(cape>=1000)return{label:'MODERATE',sub:'Moderate instability — watch closely',     color:'#ffd60a',icon:'🌩️',gradient:'linear-gradient(135deg,#2a2500,#4a4200)'};
+    if(cape>=500) return{label:'LOW',    sub:'Limited storm potential today',              color:'#30d158',icon:'⛅',gradient:'linear-gradient(135deg,#002515,#004028)'};
+    return{label:'MINIMAL',sub:'Very low instability — not a chase day',color:'#8896b8',icon:'☀️',gradient:'linear-gradient(135deg,#08122a,#0c1a38)'};
 }
 
-async function fetchAlerts() {
-    try {
-        const res  = await fetch(`https://api.weather.gov/alerts/active?area=${statesForLocation()}&status=actual`,
-            { headers:{'User-Agent':'StormChaseDashboard/2.0 (jed.a.west@gmail.com)'} });
-        const data = await res.json();
-
-        mapPolys.forEach(l => map.removeLayer(l));
-        mapPolys = []; activeAlerts = [];
-
-        for (const feat of (data.features||[])) {
-            const p = feat.properties;
-            if (!PRIORITY[p.event]) continue;
-            const c = centroid(feat.geometry);
-            if (!c) continue;
-            const dist = haversine(HOME.lat,HOME.lon,c.lat,c.lon);
-            if (dist > RADIUS_MI) continue;
-            const dir = bearingDir(HOME.lat,HOME.lon,c.lat,c.lon);
-            activeAlerts.push({ id:feat.id||p.id||`${p.event}-${p.areaDesc}`, event:p.event, area:p.areaDesc, headline:p.headline||p.event, description:p.description||'', dist:Math.round(dist), dir, expires:p.expires, c, priority:PRIORITY[p.event]||0 });
-            const geom = feat.geometry;
-            if (geom && (geom.type==='Polygon'||geom.type==='MultiPolygon')) {
-                const col = COLOR[p.event]||'#888';
-                const lyr = L.geoJSON(feat, { style:{color:col,weight:2,fillOpacity:.16,fillColor:col} });
-                lyr.bindPopup(`<b>${p.event}</b><br>${p.areaDesc}<br><small>${Math.round(dist)} mi ${dir} of you</small>`);
-                if (showPolys) lyr.addTo(map);
-                mapPolys.push(lyr);
-            }
-        }
-        activeAlerts.sort((a,b) => b.priority-a.priority || a.dist-b.dist);
-
-        checkForNewAlerts(activeAlerts);
-        renderBanner(); renderAlerts(); renderPos(); renderChaseDay();
-
-        const badge = document.getElementById('alert-badge');
-        if (activeAlerts.length) {
-            badge.className='alert-badge';
-            badge.textContent=`${activeAlerts.length} alert${activeAlerts.length>1?'s':''}`;
-        } else {
-            badge.className='alert-badge clear'; badge.textContent='All Clear';
-        }
-        document.getElementById('last-updated').textContent =
-            new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    } catch(e) {
-        console.error(e);
-        const b=document.getElementById('alert-banner');
-        b.className='alert-banner watch'; b.textContent='⚠ NETWORK ERROR — TAP REFRESH';
-    }
-}
-
-function renderBanner() {
-    const b=document.getElementById('alert-banner'), top=activeAlerts[0];
-    if (!top) { b.className='alert-banner clear'; b.textContent=`✓ ALL CLEAR — NO WARNINGS WITHIN ${RADIUS_MI} MI`; return; }
-    if      (top.event==='Tornado Emergency') { b.className='alert-banner emergency'; b.textContent=`⚡ TORNADO EMERGENCY — ${top.dist} MI ${top.dir} — EXTREME DANGER`; }
-    else if (top.event==='Tornado Warning')   { b.className='alert-banner warning';   b.textContent=`🌪 TORNADO WARNING — ${top.dist} MI ${top.dir} — CHASE POSSIBLE`; }
-    else if (top.event==='Tornado Watch')     { b.className='alert-banner watch';     b.textContent=`⚠ TORNADO WATCH — ${top.dist} MI ${top.dir} — MONITOR CLOSELY`; }
-    else                                      { b.className='alert-banner watch';     b.textContent=`⛈ SEVERE WEATHER IN RANGE — NO TORNADO WARNINGS YET`; }
-}
-
-function renderAlerts() {
-    const el=document.getElementById('alerts-list');
-    if (!activeAlerts.length) {
-        el.innerHTML=`<div class="no-alerts"><span class="no-alerts-icon">✅</span>No tornado or severe weather alerts within ${RADIUS_MI} miles.</div>`;
-        return;
-    }
-    el.innerHTML=activeAlerts.map(a=>{
-        const exp=a.expires?new Date(a.expires).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'—';
-        const area=a.area.split(';').slice(0,2).map(s=>s.trim()).join(', ');
-        return `<div class="alert-card ${CLS[a.event]||'severe-warning'}" onclick="panTo(${a.c.lat},${a.c.lon})">
-            <div class="ac-top">
-                <span class="ac-tag ${TAG[a.event]||'tag-sev'}">${a.event}</span>
-                <span class="ac-dist">${a.dist} mi ${a.dir}</span>
-            </div>
-            <div class="ac-area">${area}</div>
-            <div class="ac-meta">Expires ${exp}</div>
-        </div>`;
-    }).join('');
-}
-
-function panTo(lat,lon) {
-    map.flyTo([lat,lon],9,{duration:1.5});
-    window.scrollTo({top:0,behavior:'smooth'});
-}
-
-function renderPos() {
-    const card=document.getElementById('pos-card');
-    const warn=activeAlerts.find(a=>a.event==='Tornado Warning'||a.event==='Tornado Emergency');
-    if (!warn) {
-        card.className='pos-card';
-        card.innerHTML=`
-            <div class="pos-rule"><span class="pos-icon">✅</span><span class="pos-dim">No active tornado warnings in range right now.</span></div>
-            <div class="pos-rule"><span class="pos-icon">📌</span><span class="pos-dim">When a warning appears nearby, real-time advice shows here.</span></div>
-            <div class="pos-rule"><span class="pos-icon">🔑</span><span class="pos-dim"><span class="pos-hi">Always east or southeast</span> of the tornado path — never north or west of a moving storm.</span></div>`;
-        return;
-    }
-    const vLat=(warn.c.lat-0.04).toFixed(4), vLon=(warn.c.lon+0.10).toFixed(4);
-    card.className='pos-card active';
-    card.innerHTML=`
-        <div class="pos-rule"><span class="pos-icon">⚡</span><span class="pos-dim"><span class="pos-hi" style="color:#ffb300;">TORNADO ${warn.event==='Tornado Emergency'?'EMERGENCY':'WARNING'}</span> — ${warn.dist} miles ${warn.dir} of you</span></div>
-        <div class="pos-rule"><span class="pos-icon">📍</span><span class="pos-dim">Get <span class="pos-hi">east or southeast</span> of the storm. Storm moving NE — position east means it crosses in front of you at safe distance.</span></div>
-        <div class="pos-rule"><span class="pos-icon">✅</span><span class="pos-dim" style="color:var(--green);">Find a <span class="pos-hi">north-south paved road in open farmland</span>, 1–3 miles east of the warning polygon.</span></div>
-        <div class="pos-rule"><span class="pos-icon">🚨</span><span class="pos-dim" style="color:var(--red);">If rain or hail hits you, you are too close — <span class="pos-hi">drive east immediately.</span></span></div>
-        <div class="pos-rule"><span class="pos-icon">🚗</span><span class="pos-dim" style="color:var(--mute);">Keep engine running. Know two escape roads east before you stop.</span></div>
-        <a class="map-link" href="https://www.google.com/maps/@${vLat},${vLon},11z" target="_blank">📍 Open Suggested Viewing Area in Google Maps</a>`;
-}
-
-function renderChaseDay() {
-    const icon=document.getElementById('chase-icon'), wrap=document.getElementById('chase-wrap');
-    const rating=document.getElementById('chase-rating'), detail=document.getElementById('chase-detail');
-    const month=new Date().getMonth()+1;
-    const hasE=activeAlerts.some(a=>a.event==='Tornado Emergency');
-    const hasW=activeAlerts.some(a=>a.event==='Tornado Warning');
-    const hasCh=activeAlerts.some(a=>a.event==='Tornado Watch');
-    const inSeason=month>=3&&month<=6;
-    if      (hasE)    { icon.textContent='🌪'; wrap.style.background='linear-gradient(135deg,#3a0066,#6a00aa)'; rating.textContent='CHASE DAY — EMERGENCY'; rating.style.color='#cc44ff'; detail.textContent='Tornado emergency in range. Extremely dangerous — extra caution required.'; }
-    else if (hasW)    { icon.textContent='🌪'; wrap.style.background='linear-gradient(135deg,#5a0000,#aa0000)'; rating.textContent='ACTIVE CHASE DAY';      rating.style.color='#ff3b3b'; detail.textContent='Active tornado warning in range. Get out there — stay east, stay safe.'; }
-    else if (hasCh)   { icon.textContent='⛈'; wrap.style.background='linear-gradient(135deg,#3a2500,#7a5000)'; rating.textContent='POSSIBLE CHASE DAY';    rating.style.color='#ffb300'; detail.textContent='Tornado watch active. Monitor closely — conditions may produce tornadoes.'; }
-    else if (inSeason){ icon.textContent='🌤'; wrap.style.background='linear-gradient(135deg,#1a2a00,#2a4a00)'; rating.textContent='Check SPC Outlook';      rating.style.color='#ffd600'; detail.textContent='Peak season active. No warnings now — check the SPC outlook below for today\'s risk level.'; }
-    else              { icon.textContent='☀️'; wrap.style.background='linear-gradient(135deg,#001a10,#003a20)'; rating.textContent='Low Activity';           rating.style.color='var(--green)'; detail.textContent='No active alerts in range. Off-season or calm day.'; }
-}
-
-// ================================================================
-// CONDITIONS (Open-Meteo — free, no key)
-// ================================================================
-async function fetchConditions() {
-    try {
-        const {lat,lon}=HOME;
-        const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,weather_code&wind_speed_unit=mph&temperature_unit=fahrenheit`;
-        const res=await fetch(url);
-        const {current:c}=await res.json();
-        const dp=dewpt(c.temperature_2m, c.relative_humidity_2m);
-        document.getElementById('c-temp').textContent  = Math.round(c.temperature_2m)+'°';
-        document.getElementById('c-feels').textContent = Math.round(c.apparent_temperature)+'°';
-        document.getElementById('c-wind').textContent  = Math.round(c.wind_speed_10m);
-        document.getElementById('c-wdir').textContent  = windDirStr(c.wind_direction_10m);
-        document.getElementById('c-gust').textContent  = Math.round(c.wind_gusts_10m);
-        document.getElementById('c-dew').textContent   = dp+'°';
-        document.getElementById('c-hum').textContent   = c.relative_humidity_2m;
-        document.getElementById('c-pres').textContent  = Math.round(c.surface_pressure);
-        // Color dewpoint — high dewpoints = instability
-        const dewEl = document.getElementById('c-dew');
-        dewEl.style.color = dp>=65 ? 'var(--red)' : dp>=55 ? '#ffb300' : '#fff';
-    } catch(e) { console.warn('Conditions error:',e); }
-}
-
-// ================================================================
-// HOURLY (Open-Meteo)
-// ================================================================
-async function fetchHourly() {
-    try {
-        const {lat,lon}=HOME;
-        const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,weather_code,wind_gusts_10m,cape&wind_speed_unit=mph&temperature_unit=fahrenheit&forecast_days=2&timezone=auto`;
-        const res=await fetch(url);
-        const {hourly:h}=await res.json();
-        const now=new Date();
-        let si=0;
-        for(let i=0;i<h.time.length;i++) { if(new Date(h.time[i])>=now){si=i;break;} }
-
-        // Max CAPE next 24h
-        const capes=h.cape.slice(si,si+24).filter(v=>v!=null);
-        if(capes.length) setCape(Math.max(...capes));
-
-        let html='';
-        for(let i=si;i<Math.min(si+13,h.time.length);i++) {
-            const t=new Date(h.time[i]);
-            const hr=t.getHours(), ampm=hr>=12?'pm':'am', h12=hr%12||12;
-            const label = i===si ? 'Now' : `${h12}${ampm}`;
-            const temp=Math.round(h.temperature_2m[i]);
-            const prob=h.precipitation_probability[i]||0;
-            const cape=h.cape[i]||0;
-            const icon=wmoIcon(h.weather_code[i]||0);
-            let capeHtml='';
-            if(cape>2500) capeHtml=`<div class="hr-cape cape-hi">HIGH</div>`;
-            else if(cape>1000) capeHtml=`<div class="hr-cape cape-md">MOD</div>`;
-            html+=`<div class="hr-card" style="${i===si?'border-color:rgba(74,144,217,.35);background:rgba(74,144,217,.06);':''}">
-                <div class="hr-time">${label}</div>
-                <div class="hr-icon">${icon}</div>
-                <div class="hr-temp">${temp}°</div>
-                <div class="hr-rain">${prob>0?prob+'%':'—'}</div>
-                ${capeHtml}
-            </div>`;
-        }
-        document.getElementById('hourly-strip').innerHTML=html;
-    } catch(e) {
-        console.warn('Hourly error:',e);
-        document.getElementById('hourly-strip').innerHTML='<div style="color:var(--mute);font-size:12px;padding:8px;">Forecast unavailable</div>';
-    }
-}
-
-function setCape(cape) {
-    document.getElementById('cape-section').style.display='block';
-    const num=document.getElementById('cape-num'), bar=document.getElementById('cape-bar'), txt=document.getElementById('cape-text');
-    num.textContent=Math.round(cape)+' J/kg';
-    const pct=Math.min(cape/4000*100,100);
-    bar.style.width=pct+'%';
-    if(cape>2500){num.style.color='var(--red)';bar.style.background='linear-gradient(90deg,#ffb300,#ff3b3b)';txt.textContent='EXPLOSIVE';txt.style.color='var(--red)';}
-    else if(cape>1500){num.style.color='#ffb300';bar.style.background='#ffb300';txt.textContent='MODERATE';txt.style.color='#ffb300';}
-    else if(cape>500){num.style.color='#ffd600';bar.style.background='#ffd600';txt.textContent='LOW–MOD';txt.style.color='#ffd600';}
-    else{num.style.color='var(--dim)';bar.style.background='var(--mute)';txt.textContent='LOW';txt.style.color='var(--mute)';}
-}
-
-// ================================================================
-// TERRAIN ZONES
-// ================================================================
-function updateTerrainZones() {
-    const {lat,lon}=HOME;
-    let go, avoid;
-    if(lat>43){
-        go='· Southern MN open prairie<br>· Northern IA flat farmland<br>· SW Wisconsin (open sections)<br>· Eastern SD plains';
-        avoid='· MN Boundary Waters forest<br>· Lake country near Duluth<br>· Dense timber corridors';
-    } else if(lat>40&&lon<-95){
-        go='· Central NE Platte River corridor<br>· Western IA corn & soy fields<br>· SW Iowa open plains<br>· KS Turnpike corridor';
-        avoid='· Loess Hills bluffs (MO River)<br>· Eastern NE river valleys<br>· Any wooded creek bottoms';
-    } else if(lat>38&&lon<-90){
-        go='· I-70 corridor west into central MO<br>· Southern Iowa flat farmland<br>· Western Illinois fields<br>· Eastern Kansas plains';
-        avoid='· Southern MO Ozarks — dense trees<br>· River valleys with no escape routes<br>· Dense forest areas';
-    } else if(lat>35&&lon>=-95){
-        go='· Western KY/TN open farmland<br>· Central TN basin (Nashville area)<br>· SW Ohio flat ag land<br>· Northern MS delta';
-        avoid='· Appalachian foothills<br>· Cumberland Plateau<br>· Smoky Mountains region';
-    } else if(lon<-95&&lat<36){
-        go='· TX Panhandle — best anywhere in US<br>· Western OK open plains<br>· Central OK (I-35/I-40)<br>· Eastern NM high plains';
-        avoid='· East TX pine forests<br>· Edwards Plateau (rough terrain)<br>· Areas with no sky visibility';
-    } else {
-        go='· Open farmland with long sight lines<br>· North-south paved roads<br>· Areas east of known storm tracks';
-        avoid='· Dense forests or wooded terrain<br>· River valleys and hollows<br>· Areas with no eastward escape';
-    }
-    document.getElementById('zone-go').innerHTML=go;
-    document.getElementById('zone-avoid').innerHTML=avoid;
-}
-
-// ================================================================
-// REFRESH
-// ================================================================
-function refresh() {
-    const spin=document.getElementById('rspin');
-    if(spin) spin.style.animation='spin .5s linear infinite';
-    Promise.all([fetchAlerts(),fetchConditions(),fetchHourly(),loadRadar()])
-        .finally(()=>{ if(spin) spin.style.animation='none'; });
-}
-
-// ================================================================
-// CLOCK
-// ================================================================
-function updateClock() {
-    const now=new Date();
-    const local=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    const utcH=String(now.getUTCHours()).padStart(2,'0');
-    const utcM=String(now.getUTCMinutes()).padStart(2,'0');
-    document.getElementById('clock').textContent=`${local} · ${utcH}${utcM}Z`;
-}
-
-// ================================================================
-// ALERT NOTIFICATIONS & SETTINGS
-// ================================================================
-let seenAlertIds = new Set();
-
-const DEFAULT_SETTINGS = {
-    notificationsEnabled: false,
-    soundEnabled: true,
-    alertTypes: {
-        'Tornado Emergency': true,
-        'Tornado Warning': true,
-        'Tornado Watch': true,
-        'Severe Thunderstorm Warning': false,
-        'Severe Thunderstorm Watch': false
-    },
-    maxDistanceMi: 100
-};
-
-let alertSettings = { ...DEFAULT_SETTINGS };
-
-function loadAlertSettings() {
-    try {
-        const saved = localStorage.getItem('stormHQAlertSettings');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            alertSettings = { ...DEFAULT_SETTINGS, ...parsed };
-            alertSettings.alertTypes = { ...DEFAULT_SETTINGS.alertTypes, ...(parsed.alertTypes||{}) };
-        }
-    } catch(e) {}
-}
-
-function saveAlertSettings() {
-    localStorage.setItem('stormHQAlertSettings', JSON.stringify(alertSettings));
-}
-
-function syncSettingsUI() {
-    document.getElementById('toggle-notif').checked = alertSettings.notificationsEnabled;
-    document.getElementById('toggle-sound').checked = alertSettings.soundEnabled;
-    document.getElementById('dist-slider').value   = alertSettings.maxDistanceMi;
-    document.getElementById('dist-val').textContent = alertSettings.maxDistanceMi + ' mi';
-    const map = {
-        'Tornado Emergency': 'chk-te',
-        'Tornado Warning':   'chk-tw',
-        'Tornado Watch':     'chk-wch',
-        'Severe Thunderstorm Warning': 'chk-stw',
-        'Severe Thunderstorm Watch':   'chk-stwch'
-    };
-    for (const [type, id] of Object.entries(map)) {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle('checked', !!alertSettings.alertTypes[type]);
-    }
-    updateNotifPermStatus();
-}
-
-function updateNotifPermStatus() {
-    const status = document.getElementById('notif-perm-status');
-    const btn    = document.getElementById('notif-perm-btn');
-    if (!('Notification' in window)) {
-        status.textContent = 'Browser notifications not supported on this device.';
-        btn.style.display = 'none'; return;
-    }
-    const perm = Notification.permission;
-    if (perm === 'granted') {
-        btn.textContent = '✓ Notifications Enabled';
-        btn.style.background = 'rgba(0,200,83,.08)';
-        btn.style.borderColor = 'rgba(0,200,83,.25)';
-        btn.style.color = 'var(--green)';
-        status.textContent = '';
-    } else if (perm === 'denied') {
-        btn.style.display = 'none';
-        status.textContent = 'Notifications blocked — enable in your browser settings.';
-    } else {
-        btn.textContent = 'Enable Browser Notifications';
-        btn.style = '';
-        status.textContent = 'Tap to allow — your browser will ask permission.';
-    }
-}
-
-function openSettings() {
-    syncSettingsUI();
-    document.getElementById('modal-overlay').classList.add('open');
-}
-
-function closeSettings() {
-    document.getElementById('modal-overlay').classList.remove('open');
-}
-
-function closeSettingsOnBg(e) {
-    if (e.target === document.getElementById('modal-overlay')) closeSettings();
-}
-
-function toggleSetting(key, val) {
-    alertSettings[key] = val;
-    saveAlertSettings();
-}
-
-function toggleType(type) {
-    alertSettings.alertTypes[type] = !alertSettings.alertTypes[type];
-    saveAlertSettings();
-    syncSettingsUI();
-}
-
-function updateDistLabel(val) {
-    document.getElementById('dist-val').textContent = val + ' mi';
-}
-
-function saveDist(val) {
-    alertSettings.maxDistanceMi = parseInt(val);
-    saveAlertSettings();
-}
-
-async function requestNotifPermission() {
-    if (!('Notification' in window)) return;
-    const perm = await Notification.requestPermission();
-    if (perm === 'granted') {
-        alertSettings.notificationsEnabled = true;
-        document.getElementById('toggle-notif').checked = true;
-        saveAlertSettings();
-    }
-    updateNotifPermStatus();
-}
-
-// ── SOUND ──
-function playAlertSound(type) {
-    if (!alertSettings.soundEnabled) return;
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const isTornado = type.includes('Tornado');
-        const isEmergency = type === 'Tornado Emergency';
-        const pulses = isEmergency ? [880, 660, 880, 660, 880] : isTornado ? [660, 440, 660] : [440, 330];
-        let t = ctx.currentTime + 0.05;
-        pulses.forEach(freq => {
-            const osc  = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.type = isEmergency ? 'sawtooth' : 'sine';
-            osc.frequency.value = freq;
-            gain.gain.setValueAtTime(0, t);
-            gain.gain.linearRampToValueAtTime(0.25, t + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
-            osc.start(t); osc.stop(t + 0.4);
-            t += 0.42;
+// ─────────────────────────────────────────────
+// ATMOSPHERE PARTICLES
+// ─────────────────────────────────────────────
+function initAtmosphere(){
+    const canvas=document.getElementById('atmos-canvas');
+    if(!canvas)return;
+    const ctx=canvas.getContext('2d');
+    let W,H,particles=[];
+    function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;particles=Array.from({length:60},()=>mkPart());}
+    function mkPart(){return{x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.3,vy:-.1-Math.random()*.4,r:Math.random()*1.2+.2,o:Math.random()*.4+.05};}
+    function draw(){
+        ctx.clearRect(0,0,W,H);
+        particles.forEach(p=>{
+            ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+            ctx.fillStyle=`rgba(100,160,255,${p.o})`;ctx.fill();
+            p.x+=p.vx;p.y+=p.vy;
+            if(p.y<-2||p.x<-2||p.x>W+2){Object.assign(p,mkPart());p.y=H+2;}
         });
-    } catch(e) { console.warn('Audio error:', e); }
+        requestAnimationFrame(draw);
+    }
+    window.addEventListener('resize',resize);resize();draw();
 }
 
-// ── BROWSER NOTIFICATION ──
-function sendBrowserNotif(alert) {
-    if (!alertSettings.notificationsEnabled) return;
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const icons = { 'Tornado Emergency':'⚡', 'Tornado Warning':'🌪', 'Tornado Watch':'⚠', 'Severe Thunderstorm Warning':'⛈', 'Severe Thunderstorm Watch':'⛅' };
-    const title = `${icons[alert.event]||'⚠'} ${alert.event}`;
-    const body  = `${alert.dist} mi ${alert.dir} — ${alert.area.split(';')[0].trim()}`;
-    try {
-        const n = new Notification(title, { body, tag: alert.id, requireInteraction: alert.event.includes('Emergency') });
-        n.onclick = () => { window.focus(); n.close(); };
-    } catch(e) {}
-}
-
-// ── CHECK FOR NEW ALERTS ──
-function checkForNewAlerts(alerts) {
-    const newOnes = alerts.filter(a => {
-        if (seenAlertIds.has(a.id)) return false;
-        if (!alertSettings.alertTypes[a.event]) return false;
-        if (a.dist > alertSettings.maxDistanceMi) return false;
-        return true;
+// ─────────────────────────────────────────────
+// ROOT APP
+// ─────────────────────────────────────────────
+function App(){
+    const [tab,setTab]         = useState('map');
+    const [prevTab,setPrevTab] = useState(null);
+    const [loc,setLoc]         = useState({lat:38.7881,lon:-90.4974});
+    const [locName,setLocName] = useState('St. Charles, MO');
+    const [locReady,setLocReady]= useState(false);
+    const [conditions,setConditions] = useState(null);
+    const [alerts,setAlerts]   = useState([]);
+    const [hourly,setHourly]   = useState([]);
+    const [radarFrames,setRadarFrames] = useState([]);
+    const [radarIdx,setRadarIdx]       = useState(0);
+    const [chaseDay,setChaseDay]       = useState(null);
+    const [alertLevel,setAlertLevel]   = useState('clear');
+    const [time,setTime]       = useState(new Date());
+    const [lastUpdated,setLastUpdated] = useState(null);
+    const [refreshPulse,setRefreshPulse] = useState(false);
+    const [mapStyle,setMapStyle]       = useState('street');
+    const [darkMode,setDarkMode]       = useState(true);
+    const [showSettings,setShowSettings] = useState(false);
+    const [radarPlaying,setRadarPlaying] = useState(false);
+    const [settings,setSettings] = useState({
+        notificationsEnabled: false,
+        soundEnabled: false,
+        alertTypes: ['Tornado Emergency','Tornado Warning','Tornado Watch','Severe Thunderstorm Warning'],
+        alertRadius: 200
     });
 
-    if (!newOnes.length) {
-        // Mark all current as seen
-        alerts.forEach(a => seenAlertIds.add(a.id));
-        return;
+    useEffect(()=>{initAtmosphere();},[]);
+
+    // Clock
+    useEffect(()=>{const t=setInterval(()=>setTime(new Date()),1000);return()=>clearInterval(t);},[]);
+
+    // Geolocation — watch continuously while driving
+    useEffect(()=>{
+        if(!navigator.geolocation){setLocReady(true);return;}
+        let firstFix=true;
+        const wid=navigator.geolocation.watchPosition(
+            async pos=>{
+                const nl={lat:pos.coords.latitude,lon:pos.coords.longitude};
+                setLoc(nl);
+                if(firstFix){
+                    firstFix=false;
+                    try{
+                        const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${nl.lat}&lon=${nl.lon}`,{headers:{'Accept-Language':'en'}});
+                        const g=await r.json();
+                        const city=g.address?.city||g.address?.town||g.address?.county||'Your Location';
+                        const st=g.address?.ISO3166_2_lvl4?.split('-')[1]||g.address?.state?.slice(0,2).toUpperCase()||'';
+                        setLocName(city+(st?`, ${st}`:''));
+                    }catch(_){}
+                    setLocReady(true);
+                }
+                // Auto-pan map to new position while driving
+                if(window._leafletMap) window._leafletMap.panTo([nl.lat,nl.lon],{animate:true,duration:1});
+            },
+            ()=>setLocReady(true),
+            {enableHighAccuracy:true,timeout:9000,maximumAge:10000}
+        );
+        return()=>navigator.geolocation.clearWatch(wid);
+    },[]);
+
+    // Data fetching
+    useEffect(()=>{
+        if(!locReady)return;
+        fetchAlerts(loc);
+        fetchConditions(loc);
+        fetchRadar();
+        // Auto-refresh NWS every 2 minutes
+        const t=setInterval(()=>fetchAlerts(loc),120000);
+        return()=>clearInterval(t);
+    },[locReady]);
+
+    async function fetchAlerts(l){
+        try{
+            const res=await fetch(`https://api.weather.gov/alerts/active?area=${statesForLoc(l.lat,l.lon)}&status=actual`,
+                {headers:{'User-Agent':'StormChaseHQ/3.0 (jed.a.west@gmail.com)'}});
+            const data=await res.json();
+            const arr=[];
+            for(const feat of(data.features||[])){
+                const p=feat.properties;
+                if(!PRIORITY[p.event])continue;
+                const c=centroid(feat.geometry);
+                if(!c)continue;
+                const dist=haversine(l.lat,l.lon,c.lat,c.lon);
+                if(dist>200)continue;
+                arr.push({id:feat.id||p.id,event:p.event,area:p.areaDesc,headline:p.headline||p.event,
+                    description:p.description||'',dist:Math.round(dist),
+                    dir:bearingDir(l.lat,l.lon,c.lat,c.lon),
+                    expires:p.expires,c,priority:PRIORITY[p.event]||0,geometry:feat.geometry});
+            }
+            arr.sort((a,b)=>b.priority-a.priority||a.dist-b.dist);
+            setAlerts(arr);
+            const top=arr[0];
+            if(!top)setAlertLevel('clear');
+            else if(top.event==='Tornado Emergency')setAlertLevel('emergency');
+            else if(top.event==='Tornado Warning')setAlertLevel('warning');
+            else if(top.event==='Tornado Watch'||top.event==='Severe Thunderstorm Warning')setAlertLevel('watch');
+            else setAlertLevel('advisory');
+            setLastUpdated(new Date());
+            setRefreshPulse(true);
+            setTimeout(()=>setRefreshPulse(false),2000);
+        }catch(e){console.error(e);}
     }
 
-    // Sort by priority — highest first
-    newOnes.sort((a,b) => b.priority - a.priority);
+    async function fetchConditions(l){
+        try{
+            const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${l.lat}&longitude=${l.lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,weathercode&hourly=temperature_2m,precipitation_probability,weathercode,cape&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=1&timezone=auto`);
+            const d=await r.json();
+            const c=d.current;
+            setConditions({
+                temp:Math.round(c.temperature_2m),feels:Math.round(c.apparent_temperature),
+                wind:Math.round(c.wind_speed_10m),windDir:windDirStr(c.wind_direction_10m),
+                gust:Math.round(c.wind_gusts_10m),humidity:c.relative_humidity_2m,
+                pressure:Math.round(c.surface_pressure),dew:dewpt(c.temperature_2m,c.relative_humidity_2m),
+                code:c.weathercode
+            });
+            const nowH=new Date().getHours();
+            const hrs=[];
+            for(let i=nowH;i<Math.min(nowH+12,d.hourly.time.length);i++){
+                const cape=d.hourly.cape?.[i]||0;
+                hrs.push({time:new Date(d.hourly.time[i]).toLocaleTimeString([],{hour:'numeric'}),
+                    icon:wmoIcon(d.hourly.weathercode[i]),temp:Math.round(d.hourly.temperature_2m[i]),
+                    pop:d.hourly.precipitation_probability[i]||0,cape});
+            }
+            setHourly(hrs);
+            const maxCape=Math.max(...(d.hourly.cape||[0]));
+            setChaseDay(getChaseRating(maxCape));
+        }catch(e){console.error(e);}
+    }
 
-    // Play sound for most severe new alert
-    playAlertSound(newOnes[0].event);
+    async function fetchRadar(){
+        try{
+            const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+            const data=await r.json();
+            const past=(data?.radar?.past||[]).map(f=>({...f,type:'past'}));
+            const nowcast=(data?.radar?.nowcast||[]).map(f=>({...f,type:'future'}));
+            const frames=[...past,...nowcast];
+            setRadarFrames(frames);
+            setRadarIdx(past.length-1);
+        }catch(e){console.error(e);}
+    }
 
-    // Send browser notifications
-    newOnes.forEach(a => sendBrowserNotif(a));
+    function switchTab(t){
+        setPrevTab(tab);
+        setTab(t);
+    }
 
-    // Mark all as seen
-    alerts.forEach(a => seenAlertIds.add(a.id));
+    const lvl = LEVEL_CFG[alertLevel]||LEVEL_CFG.clear;
+
+    return(
+        <div style={{position:'fixed',inset:0,fontFamily:"'Plus Jakarta Sans',-apple-system,sans-serif",pointerEvents:'none'}}>
+            <MapLayer loc={loc} alerts={alerts} radarFrames={radarFrames} radarIdx={radarIdx} mapStyle={mapStyle}/>
+
+            {/* Map overlays — always visible, pointerEvents managed per child */}
+            <div style={{position:'fixed',inset:0,zIndex:20,pointerEvents:'none',display:'flex',flexDirection:'column'}}>
+                <MapOverlayUI
+                    loc={loc} locName={locName}
+                    conditions={conditions} alerts={alerts} alertLevel={alertLevel} lvl={lvl}
+                    radarFrames={radarFrames} radarIdx={radarIdx} setRadarIdx={setRadarIdx}
+                    time={time} mapStyle={mapStyle} setMapStyle={setMapStyle}
+                    onOpenSettings={()=>setShowSettings(true)}
+                    radarPlaying={radarPlaying} setRadarPlaying={setRadarPlaying}
+                    refreshPulse={refreshPulse} lastUpdated={lastUpdated}
+                    darkMode={darkMode} setDarkMode={setDarkMode}
+                    tab={tab} setTab={switchTab}
+                />
+            </div>
+
+            {/* Bottom sheets — always rendered for smooth transitions */}
+            <Sheet open={tab==='alerts'}>
+                <AlertsTab alerts={alerts} alertLevel={alertLevel} lvl={lvl} locName={locName}/>
+            </Sheet>
+            <Sheet open={tab==='chase'}>
+                <ChaseTab chaseDay={chaseDay} hourly={hourly} conditions={conditions}/>
+            </Sheet>
+            <Sheet open={tab==='more'}>
+                <MoreTab loc={loc}/>
+            </Sheet>
+
+            {showSettings && (
+                <SettingsModal settings={settings} setSettings={setSettings} onClose={()=>setShowSettings(false)}/>
+            )}
+        </div>
+    );
 }
 
-// ================================================================
-// BOOT
-// ================================================================
-loadAlertSettings();
-updateClock();
-setInterval(updateClock, 15000);
-setInterval(() => { fetchAlerts(); fetchConditions(); }, 2*60*1000);
-setInterval(loadRadar, 2*60*1000);
+// ─────────────────────────────────────────────
+// MAP LAYER (Leaflet — always in DOM)
+// ─────────────────────────────────────────────
+function MapLayer({loc,alerts,radarFrames,radarIdx,mapStyle}){
+    const mapRef       = useRef(null);
+    const radarLayerRef= useRef(null);
+    const alertLayersRef=useRef([]);
+    const markerRef    = useRef(null);
+    const radiusRef    = useRef(null);
+    const streetLayerRef = useRef(null);
+    const satLayerRef    = useRef(null);
 
-initLocation();
+    useEffect(()=>{
+        if(mapRef.current)return;
+        const map=L.map('map',{center:[loc.lat,loc.lon],zoom:7,zoomControl:false,attributionControl:true});
+        const street = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+            {attribution:'© OpenStreetMap © CARTO',maxZoom:19});
+        const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            {attribution:'© Esri',maxZoom:19});
+        street.addTo(map);
+        streetLayerRef.current = street;
+        satLayerRef.current    = sat;
+        mapRef.current=map;
+        window._leafletMap=map;
+    },[]);
+
+    // Switch base layer on mapStyle change
+    useEffect(()=>{
+        const map=mapRef.current;
+        if(!map||!streetLayerRef.current||!satLayerRef.current)return;
+        if(mapStyle==='satellite'){
+            map.removeLayer(streetLayerRef.current);
+            satLayerRef.current.addTo(map);
+            // Satellite tile pane needs less hue shift
+            document.querySelector('.leaflet-tile-pane').style.filter='brightness(.85) saturate(.9)';
+        } else {
+            map.removeLayer(satLayerRef.current);
+            streetLayerRef.current.addTo(map);
+            document.querySelector('.leaflet-tile-pane').style.filter='brightness(.72) saturate(1.3) hue-rotate(198deg)';
+        }
+        // Re-add radar on top
+        if(radarLayerRef.current){ map.removeLayer(radarLayerRef.current); radarLayerRef.current.addTo(map); }
+    },[mapStyle]);
+
+    // User dot
+    useEffect(()=>{
+        const map=mapRef.current;if(!map)return;
+        if(markerRef.current)map.removeLayer(markerRef.current);
+        if(radiusRef.current)map.removeLayer(radiusRef.current);
+        const icon=L.divIcon({
+            html:`<div style="position:relative;width:26px;height:26px;">
+                <div style="position:absolute;inset:0;background:rgba(77,148,255,.22);border-radius:50%;animation:pulseRing 2.2s ease-out infinite;"></div>
+                <div style="position:absolute;top:6px;left:6px;width:14px;height:14px;background:#4d94ff;border-radius:50%;border:2.5px solid #fff;box-shadow:0 0 18px rgba(77,148,255,1),0 0 6px rgba(77,148,255,.8);"></div>
+            </div>`,
+            iconSize:[26,26],iconAnchor:[13,13],className:''
+        });
+        markerRef.current=L.marker([loc.lat,loc.lon],{icon}).addTo(map);
+        radiusRef.current=L.circle([loc.lat,loc.lon],{
+            radius:200*1609.34,color:'rgba(77,148,255,.25)',weight:1.2,fillOpacity:.015,dashArray:'5,9'
+        }).addTo(map);
+        map.flyTo([loc.lat,loc.lon],7,{duration:1.6});
+    },[loc]);
+
+    // Radar layer
+    useEffect(()=>{
+        const map=mapRef.current;if(!map||!radarFrames.length)return;
+        if(radarLayerRef.current)map.removeLayer(radarLayerRef.current);
+        const frame=radarFrames[radarIdx];if(!frame)return;
+        const url=`https://tilecache.rainviewer.com${frame.path}/256/{z}/{x}/{y}/4/1_1.png`;
+        radarLayerRef.current=L.tileLayer(url,{opacity:.72,zIndex:500});
+        radarLayerRef.current.addTo(map);
+    },[radarFrames,radarIdx]);
+
+    // Alert polygons
+    useEffect(()=>{
+        const map=mapRef.current;if(!map)return;
+        alertLayersRef.current.forEach(l=>map.removeLayer(l));
+        alertLayersRef.current=[];
+        alerts.forEach(a=>{
+            if(!a.geometry||(a.geometry.type!=='Polygon'&&a.geometry.type!=='MultiPolygon'))return;
+            const col=ALERT_COLOR[a.event]||'#888';
+            const lyr=L.geoJSON({type:'Feature',geometry:a.geometry},{
+                style:{color:col,weight:2.5,fillOpacity:.18,fillColor:col}
+            });
+            lyr.bindPopup(`<b>${a.event}</b><br>${a.area}<br><small style="color:#8896b8">${a.dist} mi ${a.dir} of you</small>`);
+            lyr.addTo(map);
+            alertLayersRef.current.push(lyr);
+        });
+    },[alerts]);
+
+    return null;
+}
+
+// ─────────────────────────────────────────────
+// SHEET (bottom drawer)
+// ─────────────────────────────────────────────
+function Sheet({open, children}){
+    return(
+        <div className="panel-scroll" style={{
+            position:'fixed',bottom:0,left:0,right:0,
+            height:'64vh',zIndex:30,
+            transform:open?'translateY(0)':'translateY(105%)',
+            transition:'transform .32s cubic-bezier(.4,0,.2,1)',
+            borderRadius:'22px 22px 0 0',
+            background:'rgba(4,9,26,.97)',
+            border:'1px solid rgba(100,148,255,.15)',
+            borderBottom:'none',
+            boxShadow:'0 -10px 60px rgba(0,0,0,.7)',
+            pointerEvents:open?'all':'none',
+            overflowY:'auto',
+        }}>
+            <div style={{width:36,height:4,background:'#2d3d60',borderRadius:2,margin:'12px auto 0',flexShrink:0}}/>
+            {children}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// MAP TAB OVERLAY UI
+// ─────────────────────────────────────────────
+function MapOverlayUI({loc,locName,conditions,alerts,alertLevel,lvl,radarFrames,radarIdx,setRadarIdx,time,mapStyle,setMapStyle,onOpenSettings,radarPlaying,setRadarPlaying,refreshPulse,lastUpdated,darkMode,setDarkMode,tab,setTab}){
+    // Radar animation
+    useEffect(()=>{
+        if(!radarPlaying||!radarFrames.length)return;
+        const t=setInterval(()=>setRadarIdx(i=>(i+1)%radarFrames.length),600);
+        return()=>clearInterval(t);
+    },[radarPlaying,radarFrames.length]);
+
+    // Apply light/dark map tile filter
+    useEffect(()=>{
+        const pane=document.querySelector('.leaflet-tile-pane');
+        if(!pane)return;
+        if(mapStyle==='satellite'){
+            pane.style.filter=darkMode?'brightness(.85) saturate(.9)':'brightness(1) saturate(1)';
+        } else {
+            pane.style.filter=darkMode?'brightness(.72) saturate(1.3) hue-rotate(198deg)':'brightness(.9) saturate(1.1) hue-rotate(180deg)';
+        }
+        document.body.style.background=darkMode?'#04091a':'#0e1f40';
+    },[darkMode,mapStyle]);
+
+    function centerOnMe(){
+        if(window._leafletMap) window._leafletMap.flyTo([loc.lat,loc.lon],9,{duration:1.2});
+    }
+    function zoom(d){ if(window._leafletMap) window._leafletMap.setZoom(window._leafletMap.getZoom()+d); }
+    const topAlert=alerts[0];
+    const frame=radarFrames[radarIdx];
+    const frameTime=frame?new Date(frame.time*1000):null;
+    const isFuture=frame?.type==='future';
+    const pastCount=radarFrames.filter(f=>f.type==='past').length;
+
+    // Compute the CSS gradient for radar scrubber track
+    const trackPct = radarFrames.length>1 ? Math.round((radarIdx/(radarFrames.length-1))*100) : 50;
+    const nowPct   = radarFrames.length>1 ? Math.round(((pastCount-1)/(radarFrames.length-1))*100) : 50;
+    const trackStyle={
+        background:`linear-gradient(to right,
+            rgba(77,148,255,.8) 0%,
+            rgba(77,148,255,.8) ${nowPct}%,
+            rgba(255,255,255,.5) ${nowPct}%,
+            rgba(255,255,255,.5) ${nowPct+.5}%,
+            rgba(255,149,0,.7) ${nowPct+.5}%,
+            rgba(255,149,0,.7) 100%)`
+    };
+
+    return(
+        <>
+        {/* ── HEADER GLASS PILL ── */}
+        <div style={{
+            margin:'12px 12px 0',
+            borderRadius:22,padding:'10px 14px',
+            background:'rgba(4,9,26,.88)',
+            backdropFilter:'blur(28px)',WebkitBackdropFilter:'blur(28px)',
+            border:'1px solid rgba(100,148,255,.16)',
+            display:'flex',alignItems:'center',justifyContent:'space-between',
+            boxShadow:'0 4px 40px rgba(0,0,0,.45)',
+            pointerEvents:'all'
+        }}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{
+                    width:38,height:38,borderRadius:13,flexShrink:0,
+                    background:'linear-gradient(135deg,#0c2a5a,#1a50a0)',
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    fontSize:18,boxShadow:'0 0 20px rgba(77,148,255,.4)'
+                }}>🌪</div>
+                <div>
+                    <div style={{fontSize:15,fontWeight:900,color:'#fff',letterSpacing:.3}}>STORM CHASE HQ</div>
+                    <div style={{display:'flex',alignItems:'center',gap:5,marginTop:1}}>
+                        {/* Refresh pulse dot */}
+                        <span style={{
+                            width:6,height:6,borderRadius:'50%',
+                            background: refreshPulse ? '#4d94ff' : '#30d158',
+                            boxShadow: refreshPulse ? '0 0 10px #4d94ff' : '0 0 8px #30d158',
+                            flexShrink:0,display:'inline-block',
+                            transition:'background .3s, box-shadow .3s',
+                            animation: refreshPulse ? 'refreshBlink .5s ease-in-out infinite' : 'none'
+                        }}/>
+                        <span style={{fontSize:11,color:'#8896b8'}}>{locName}</span>
+                        {lastUpdated && <span style={{fontSize:9,color:'#2d3d60',marginLeft:2}}>
+                            {refreshPulse ? '↻ updating…' : `↻ ${lastUpdated.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`}
+                        </span>}
+                    </div>
+                </div>
+            </div>
+            <div style={{textAlign:'right'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <button onClick={()=>setDarkMode(d=>!d)} title={darkMode?'Day mode':'Night mode'} style={{
+                        width:32,height:32,borderRadius:10,flexShrink:0,
+                        background:'rgba(255,255,255,.06)',border:'1px solid rgba(100,148,255,.15)',
+                        color:'#8896b8',fontSize:14,cursor:'pointer',
+                        display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'all'
+                    }}>{darkMode?'☀️':'🌙'}</button>
+                    <button onClick={onOpenSettings} style={{
+                        width:32,height:32,borderRadius:10,flexShrink:0,
+                        background:'rgba(255,255,255,.06)',border:'1px solid rgba(100,148,255,.15)',
+                        color:'#8896b8',fontSize:15,cursor:'pointer',
+                        display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'all'
+                    }}>⚙</button>
+                    <div>
+                        <div style={{
+                            display:'inline-flex',alignItems:'center',gap:5,padding:'4px 11px',
+                            borderRadius:20,fontSize:11,fontWeight:700,letterSpacing:.4,
+                            background:alertLevel==='clear'?'rgba(48,209,88,.1)':'rgba(255,61,61,.12)',
+                            border:`1px solid ${alertLevel==='clear'?'rgba(48,209,88,.25)':'rgba(255,61,61,.3)'}`,
+                            color:lvl.color,
+                            animation:alertLevel==='warning'||alertLevel==='emergency'?'glowPulseRed 1.4s infinite':'none'
+                        }}>
+                            {alertLevel==='clear'?'All Clear':`${alerts.length} Alert${alerts.length>1?'s':''}`}
+                        </div>
+                        <div style={{fontSize:10,color:'#3a4a6a',marginTop:4,fontVariantNumeric:'tabular-nums'}}>
+                            {time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* ── PILL NAV ── */}
+        <div style={{margin:'6px 12px 0',display:'flex',justifyContent:'center',pointerEvents:'all'}}>
+            <div style={{
+                display:'inline-flex',gap:3,
+                background:'rgba(4,9,26,.88)',
+                backdropFilter:'blur(24px)',WebkitBackdropFilter:'blur(24px)',
+                border:'1px solid rgba(100,148,255,.13)',
+                borderRadius:20,padding:'3px',
+                boxShadow:'0 4px 24px rgba(0,0,0,.4)'
+            }}>
+                {[['map','Map'],['alerts','Alerts'],['chase','Chase'],['more','More']].map(([id,label])=>(
+                    <button key={id} onClick={()=>setTab(id)} style={{
+                        padding:'6px 15px',borderRadius:16,fontSize:12,fontWeight:700,cursor:'pointer',
+                        background:tab===id?'rgba(77,148,255,.2)':'transparent',
+                        border:tab===id?'1px solid rgba(77,148,255,.35)':'1px solid transparent',
+                        color:tab===id?'#4d94ff':'#3a4a6a',
+                        fontFamily:'inherit',position:'relative',transition:'all .15s'
+                    }}>
+                        {label}
+                        {id==='alerts'&&alerts.length>0&&(
+                            <span style={{
+                                position:'absolute',top:2,right:2,
+                                minWidth:14,height:14,borderRadius:7,padding:'0 2px',
+                                background:lvl.color,fontSize:8,fontWeight:800,color:'#fff',
+                                display:'inline-flex',alignItems:'center',justifyContent:'center',
+                                boxShadow:`0 0 6px ${lvl.color}80`
+                            }}>{alerts.length>9?'9+':alerts.length}</span>
+                        )}
+                    </button>
+                ))}
+            </div>
+        </div>
+
+        {/* ── CONDITIONS STRIP ── */}
+        {conditions && (
+            <div style={{
+                margin:'8px 12px 0',
+                borderRadius:16,padding:'9px 0',
+                background:'rgba(4,9,26,.82)',
+                backdropFilter:'blur(24px)',WebkitBackdropFilter:'blur(24px)',
+                border:'1px solid rgba(100,148,255,.12)',
+                display:'flex',overflow:'hidden',
+                pointerEvents:'all'
+            }}>
+                {[
+                    {l:'TEMP', v:`${conditions.temp}°`, s:`feels ${conditions.feels}°`},
+                    {l:'WIND', v:`${conditions.wind}`,  s:`${conditions.windDir} mph`},
+                    {l:'GUST', v:`${conditions.gust}`,  s:'mph'},
+                    {l:'DEW',  v:`${conditions.dew}°`,  s:'°F'},
+                    {l:'HUM',  v:`${conditions.humidity}%`, s:''},
+                ].map((item,i)=>(
+                    <div key={i} style={{
+                        flex:1,textAlign:'center',padding:'2px 4px',
+                        borderRight:i<4?'1px solid rgba(255,255,255,.05)':'none'
+                    }}>
+                        <div style={{fontSize:8,fontWeight:700,color:'#2d3d60',textTransform:'uppercase',letterSpacing:1.2,marginBottom:3}}>{item.l}</div>
+                        <div style={{fontSize:17,fontWeight:800,color:'#fff',lineHeight:1,fontVariantNumeric:'tabular-nums'}}>{item.v}</div>
+                        <div style={{fontSize:9,color:'#8896b8',marginTop:2}}>{item.s}</div>
+                    </div>
+                ))}
+            </div>
+        )}
+
+        {/* ── MAP STYLE TOGGLE ── */}
+        <div style={{
+            margin:'8px 12px 0',display:'flex',gap:6,pointerEvents:'all'
+        }}>
+            {['street','satellite'].map(style=>(
+                <button key={style} onClick={()=>setMapStyle(style)} style={{
+                    padding:'6px 14px',borderRadius:20,fontSize:11,fontWeight:700,cursor:'pointer',
+                    background:mapStyle===style?'rgba(77,148,255,.18)':'rgba(4,9,26,.75)',
+                    border:mapStyle===style?'1px solid rgba(77,148,255,.4)':'1px solid rgba(100,148,255,.1)',
+                    color:mapStyle===style?'#4d94ff':'#3a4a6a',
+                    backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',
+                    transition:'all .15s',fontFamily:'inherit',letterSpacing:.3
+                }}>{style==='street'?'🗺 Street':'🛰 Satellite'}</button>
+            ))}
+        </div>
+
+        {/* ── ACTIVE ALERT BANNER ── */}
+        {topAlert && (
+            <div style={{
+                margin:'8px 12px 0',
+                borderRadius:14,padding:'10px 14px',
+                background:alertLevel==='emergency'?'rgba(191,90,242,.1)':alertLevel==='warning'?'rgba(255,61,61,.09)':'rgba(255,149,0,.07)',
+                border:`1px solid ${lvl.color}40`,
+                backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',
+                pointerEvents:'all',
+                animation:alertLevel==='emergency'?'glowPulsePurple 1.2s infinite':alertLevel==='warning'?'glowPulseRed 1.4s infinite':'none',
+                boxShadow:`0 0 24px ${lvl.glow}30`
+            }}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                        <span style={{fontSize:22,filter:`drop-shadow(0 0 8px ${lvl.color})`}}>{lvl.icon}</span>
+                        <div>
+                            <div style={{fontSize:12,fontWeight:800,color:lvl.color,textTransform:'uppercase',letterSpacing:.6}}>{topAlert.event}</div>
+                            <div style={{fontSize:10,color:'#8896b8',marginTop:1}}>{topAlert.area.split(';')[0].trim()} · {topAlert.dist} mi {topAlert.dir}</div>
+                        </div>
+                    </div>
+                    {alerts.length>1&&<div style={{fontSize:11,color:'#3a4a6a',fontWeight:600,flexShrink:0}}>+{alerts.length-1} more</div>}
+                </div>
+            </div>
+        )}
+
+        {/* spacer */}
+        <div style={{flex:1}}/>
+
+        {/* ── ZOOM + CENTER BUTTONS (map tab only) ── */}
+        {tab==='map' && (
+        <div style={{position:'absolute',bottom:'calc(110px + 16px)',left:16,pointerEvents:'all',display:'flex',flexDirection:'column',gap:8}}>
+            <button onClick={()=>zoom(1)} style={{width:44,height:44,borderRadius:14,background:'rgba(4,9,26,.88)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',border:'1px solid rgba(100,148,255,.22)',color:'#4d94ff',fontSize:22,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 20px rgba(0,0,0,.4)',fontFamily:'inherit'}}>+</button>
+            <button onClick={()=>zoom(-1)} style={{width:44,height:44,borderRadius:14,background:'rgba(4,9,26,.88)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',border:'1px solid rgba(100,148,255,.22)',color:'#4d94ff',fontSize:22,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 20px rgba(0,0,0,.4)',fontFamily:'inherit'}}>−</button>
+            <button onClick={centerOnMe} style={{width:44,height:44,borderRadius:'50%',background:'rgba(4,9,26,.88)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',border:'1px solid rgba(100,148,255,.22)',color:'#4d94ff',fontSize:18,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 20px rgba(0,0,0,.4)'}}>📍</button>
+        </div>
+        )}
+
+        {/* ── RADAR TIME SCRUBBER (map tab only) ── */}
+        {tab==='map' && radarFrames.length>0 && (
+            <div style={{
+                margin:'0 12px 16px',
+                borderRadius:20,padding:'12px 16px 14px',
+                background:'rgba(4,9,26,.92)',
+                backdropFilter:'blur(28px)',WebkitBackdropFilter:'blur(28px)',
+                border:'1px solid rgba(100,148,255,.16)',
+                boxShadow:'0 -4px 40px rgba(0,0,0,.4)',
+                pointerEvents:'all'
+            }}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        {/* Play/Pause */}
+                        <button onClick={()=>setRadarPlaying(p=>!p)} style={{
+                            width:30,height:30,borderRadius:'50%',
+                            background:radarPlaying?'rgba(77,148,255,.25)':'rgba(255,255,255,.07)',
+                            border:radarPlaying?'1px solid rgba(77,148,255,.5)':'1px solid rgba(255,255,255,.12)',
+                            color:radarPlaying?'#4d94ff':'#8896b8',fontSize:12,cursor:'pointer',
+                            display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'inherit'
+                        }}>{radarPlaying?'⏸':'▶'}</button>
+                        <span style={{fontSize:10,fontWeight:700,color:'#4d94ff',textTransform:'uppercase',letterSpacing:1.8}}>Radar</span>
+                        <div style={{
+                            padding:'2px 8px',borderRadius:10,fontSize:10,fontWeight:700,
+                            background:isFuture?'rgba(255,149,0,.14)':'rgba(77,148,255,.1)',
+                            border:isFuture?'1px solid rgba(255,149,0,.3)':'1px solid rgba(77,148,255,.25)',
+                            color:isFuture?'#ff9500':'#4d94ff',letterSpacing:.5
+                        }}>{isFuture?'FORECAST':'OBSERVED'}</div>
+                    </div>
+                    <div style={{fontSize:13,color:'#e8eef8',fontWeight:700,fontVariantNumeric:'tabular-nums'}}>
+                        {frameTime?frameTime.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'—'}
+                    </div>
+                </div>
+                <div style={{position:'relative',marginBottom:6}}>
+                    <div style={{
+                        position:'absolute',top:'50%',left:0,right:0,
+                        height:4,borderRadius:2,transform:'translateY(-50%)',
+                        pointerEvents:'none', zIndex:0,
+                        ...trackStyle
+                    }}/>
+                    <input type="range"
+                        min={0} max={radarFrames.length-1} value={radarIdx}
+                        onChange={e=>setRadarIdx(+e.target.value)}
+                        style={{position:'relative',zIndex:1}}
+                    />
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between'}}>
+                    <span style={{fontSize:9,color:'rgba(77,148,255,.5)',fontWeight:700,textTransform:'uppercase',letterSpacing:.8}}>Past</span>
+                    <span style={{fontSize:9,color:'rgba(255,255,255,.3)',fontWeight:700,textTransform:'uppercase',letterSpacing:.8}}>Now</span>
+                    <span style={{fontSize:9,color:'rgba(255,149,0,.5)',fontWeight:700,textTransform:'uppercase',letterSpacing:.8}}>Forecast</span>
+                </div>
+            </div>
+        )}
+        </>
+    );
+}
+
+// ─────────────────────────────────────────────
+// ALERTS TAB
+// ─────────────────────────────────────────────
+function AlertsTab({alerts,alertLevel,lvl,locName}){
+    return(
+        <div style={{paddingBottom:32}}>
+            {/* Atmospheric gradient top */}
+            <div style={{
+                position:'sticky',top:0,zIndex:2,
+                background:lvl.bg,
+                paddingTop:20,paddingBottom:20,paddingLeft:20,paddingRight:20,
+                marginBottom:-8
+            }}>
+                <div style={{
+                    fontSize:36,textAlign:'center',marginBottom:8,
+                    filter:`drop-shadow(0 0 24px ${lvl.glow})`
+                }}>{lvl.icon}</div>
+                <div style={{
+                    fontSize:20,fontWeight:900,color:lvl.color,
+                    letterSpacing:1.5,textTransform:'uppercase',textAlign:'center',marginBottom:5
+                }}>{lvl.label}</div>
+                <div style={{fontSize:13,color:'#8896b8',textAlign:'center'}}>
+                    {alerts.length>0
+                        ?`${alerts.length} active alert${alerts.length>1?'s':''} within 200 mi of ${locName}`
+                        :`No active alerts near ${locName}`}
+                </div>
+            </div>
+
+            <div style={{padding:'16px 16px 0'}}>
+                {alerts.length===0&&(
+                    <div style={{
+                        textAlign:'center',padding:'32px 20px',
+                        background:'rgba(48,209,88,.04)',
+                        border:'1px solid rgba(48,209,88,.12)',
+                        borderRadius:18,color:'#8896b8',fontSize:13,lineHeight:1.7,marginTop:8
+                    }}>
+                        Conditions are favorable.<br/>No active watches or warnings in range.
+                    </div>
+                )}
+                {alerts.map((a,i)=>{
+                    const tag=ALERT_TAG[a.event]||{label:a.event,bg:'rgba(255,255,255,.1)',color:'#fff'};
+                    const col=ALERT_COLOR[a.event]||'#888';
+                    return(
+                        <div key={a.id||i} style={{
+                            marginBottom:10,
+                            background:'rgba(7,14,36,.85)',
+                            border:'1px solid rgba(255,255,255,.06)',
+                            borderLeft:`3px solid ${col}`,
+                            borderRadius:16,padding:'14px 16px',
+                            backdropFilter:'blur(16px)',
+                            boxShadow:`0 2px 20px rgba(0,0,0,.3),inset 0 0 0 0 transparent`,
+                            animation:'fadeUp .35s ease both',
+                            animationDelay:`${i*.06}s`
+                        }}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                                <span style={{
+                                    padding:'3px 9px',borderRadius:20,
+                                    fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:.5,
+                                    background:tag.bg,color:tag.color
+                                }}>{tag.label}</span>
+                                <span style={{fontSize:15,fontWeight:700,color:'#4d94ff',flexShrink:0}}>{a.dist} mi {a.dir}</span>
+                            </div>
+                            <div style={{fontSize:12,color:'#8896b8',lineHeight:1.65}}>{a.area}</div>
+                            {a.headline&&(
+                                <div style={{fontSize:11,color:'#3a4a6a',marginTop:6,lineHeight:1.55}}>{a.headline}</div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// CHASE TAB
+// ─────────────────────────────────────────────
+function ChaseTab({chaseDay,hourly,conditions}){
+    const shimCard={
+        height:120,borderRadius:20,marginBottom:12,
+        background:'linear-gradient(90deg,#0c172d 25%,#0f1f3a 50%,#0c172d 75%)',
+        backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'
+    };
+    return(
+        <div style={{padding:'16px 16px 0'}}>
+
+                {/* Chase Day Hero */}
+                {chaseDay?(
+                    <div style={{
+                        borderRadius:22,overflow:'hidden',marginBottom:12,padding:'24px 20px',
+                        background:chaseDay.gradient,
+                        border:'1px solid rgba(255,255,255,.07)',
+                        position:'relative',
+                    }}>
+                        {/* Subtle scanline overlay */}
+                        <div style={{
+                            position:'absolute',inset:0,
+                            backgroundImage:'repeating-linear-gradient(transparent 0px,transparent 3px,rgba(0,0,0,.08) 3px,rgba(0,0,0,.08) 4px)',
+                            pointerEvents:'none',borderRadius:22
+                        }}/>
+                        <div style={{display:'flex',alignItems:'center',gap:18,position:'relative'}}>
+                            <div style={{
+                                width:68,height:68,borderRadius:22,
+                                background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.1)',
+                                display:'flex',alignItems:'center',justifyContent:'center',
+                                fontSize:34,flexShrink:0,
+                                boxShadow:`0 0 32px ${chaseDay.color}55`,
+                                animation:'float 4s ease-in-out infinite'
+                            }}>{chaseDay.icon}</div>
+                            <div>
+                                <div style={{fontSize:11,fontWeight:700,color:'rgba(255,255,255,.35)',textTransform:'uppercase',letterSpacing:2.5,marginBottom:4}}>Chase Potential</div>
+                                <div style={{fontSize:36,fontWeight:900,color:chaseDay.color,lineHeight:1,letterSpacing:.5,textShadow:`0 0 20px ${chaseDay.color}88`}}>{chaseDay.label}</div>
+                                <div style={{fontSize:12,color:'rgba(255,255,255,.45)',marginTop:7,lineHeight:1.5}}>{chaseDay.sub}</div>
+                            </div>
+                        </div>
+                    </div>
+                ):(
+                    <div style={shimCard}/>
+                )}
+
+                {/* SPC Outlook */}
+                <div style={{
+                    borderRadius:18,overflow:'hidden',marginBottom:12,
+                    background:'rgba(7,14,36,.9)',border:'1px solid rgba(100,148,255,.1)',padding:16
+                }}>
+                    <div style={{fontSize:10,fontWeight:700,color:'#4d94ff',textTransform:'uppercase',letterSpacing:2.2,marginBottom:12}}>SPC Day 1 — Tornado Outlook</div>
+                    <div style={{borderRadius:12,overflow:'hidden',background:'#000',marginBottom:12}}>
+                        <img src="https://www.spc.noaa.gov/products/outlook/day1otlk_prt.gif"
+                             alt="SPC Outlook"
+                             style={{width:'100%',maxWidth:440,display:'block',margin:'0 auto'}}
+                             onError={e=>{e.target.parentElement.innerHTML='<div style="padding:16px;font-size:12px;color:#8896b8;text-align:center;">SPC image unavailable — check spc.noaa.gov</div>';}}
+                        />
+                    </div>
+                    <div style={{display:'flex',gap:8}}>
+                        {[['Day 1','https://www.spc.noaa.gov/products/outlook/'],['Day 2','https://www.spc.noaa.gov/products/outlook/day2otlk.html'],['Watches','https://www.spc.noaa.gov/products/watch/']].map(([l,u])=>(
+                            <a key={l} href={u} target="_blank" style={{
+                                flex:1,textAlign:'center',
+                                background:'rgba(77,148,255,.07)',border:'1px solid rgba(77,148,255,.18)',
+                                color:'#4d94ff',fontSize:12,fontWeight:600,padding:'10px',
+                                borderRadius:10,textDecoration:'none',display:'block'
+                            }}>{l}</a>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Hourly */}
+                {hourly.length>0&&(
+                    <div style={{
+                        borderRadius:18,background:'rgba(7,14,36,.9)',
+                        border:'1px solid rgba(100,148,255,.1)',padding:16,marginBottom:12
+                    }}>
+                        <div style={{fontSize:10,fontWeight:700,color:'#4d94ff',textTransform:'uppercase',letterSpacing:2.2,marginBottom:14}}>Next 12 Hours</div>
+                        <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
+                            {hourly.map((h,i)=>{
+                                const capeBorder=h.cape>2000?'rgba(255,61,61,.35)':h.cape>1000?'rgba(255,149,0,.3)':'rgba(255,255,255,.07)';
+                                return(
+                                    <div key={i} style={{
+                                        flexShrink:0,minWidth:62,textAlign:'center',
+                                        background:'rgba(255,255,255,.025)',
+                                        border:`1px solid ${capeBorder}`,
+                                        borderRadius:14,padding:'10px 6px'
+                                    }}>
+                                        <div style={{fontSize:9,color:'#3a4a6a',fontWeight:700,marginBottom:5,textTransform:'uppercase'}}>{h.time}</div>
+                                        <div style={{fontSize:22,marginBottom:4}}>{h.icon}</div>
+                                        <div style={{fontSize:14,fontWeight:800,color:'#fff'}}>{h.temp}°</div>
+                                        <div style={{fontSize:10,color:'#4d94ff',fontWeight:600,marginTop:3}}>{h.pop}%</div>
+                                        {h.cape>500&&<div style={{fontSize:8,fontWeight:800,marginTop:3,color:h.cape>2000?'#ff3d3d':'#ff9500',textTransform:'uppercase',letterSpacing:.5}}>CAPE</div>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// MORE TAB
+// ─────────────────────────────────────────────
+function MoreTab(){
+    const chasers=[
+        {name:'Reed Timmer',handle:'@ReedTimmerUSA',url:'https://x.com/ReedTimmerUSA',emoji:'🌪',desc:'Most aggressive active chaser — real-time video & position'},
+        {name:'Basehunters', handle:'@basehunters',  url:'https://x.com/basehunters',  emoji:'🎯',desc:'Pro team — excellent positioning & live intercept footage'},
+        {name:'Pecos Hank',  handle:'@PecosHank',    url:'https://x.com/PecosHank',    emoji:'🎥',desc:'Incredible video quality — consistent field updates'},
+        {name:'NWS St. Louis',handle:'@NWSStLouis',  url:'https://x.com/NWSStLouis',   emoji:'📡',desc:'Official local office — tornado warnings first'},
+        {name:'Max Velocity',handle:'@MaxVelocityWX',url:'https://x.com/MaxVelocityWX',emoji:'⚡',desc:'20+ chaser team — live severe weather coverage'},
+    ];
+    const links=[
+        {icon:'🌪',l:'SPC Outlook',u:'https://www.spc.noaa.gov/products/outlook/'},
+        {icon:'📡',l:'NWS Radar',u:'https://radar.weather.gov'},
+        {icon:'📍',l:'Spotter Net',u:'https://www.spotternetwork.org'},
+        {icon:'⚠️',l:'All Alerts',u:'https://alerts.weather.gov'},
+        {icon:'🌩',l:'IEM Radar',u:'https://mesonet.agron.iastate.edu/radar/app/'},
+        {icon:'🗺️',l:'WunderMap',u:'https://www.wunderground.com/wundermap'},
+    ];
+    const secStyle={fontSize:10,fontWeight:700,color:'#4d94ff',textTransform:'uppercase',letterSpacing:2.2,marginBottom:12,padding:'0 2px'};
+    return(
+        <div style={{padding:'16px 16px 0'}}>
+
+                {/* Positioning */}
+                <div style={{borderRadius:18,background:'rgba(7,14,36,.9)',border:'1px solid rgba(100,148,255,.1)',padding:16,marginBottom:16}}>
+                    <div style={secStyle}>Positioning Advice</div>
+                    {[
+                        {icon:'📌',text:'Always east or southeast of the tornado path. Never north or west of a moving storm.'},
+                        {icon:'🔑',text:'Maintain a 1–2 mile paved escape route at all times before approaching a storm.'},
+                        {icon:'📻',text:'Monitor NWS storm-relative velocity — look for hook echoes and tight rotation signatures.'},
+                    ].map((r,i)=>(
+                        <div key={i} style={{display:'flex',gap:10,marginBottom:i<2?12:0,fontSize:12,color:'#8896b8',lineHeight:1.7}}>
+                            <span style={{fontSize:16,flexShrink:0,marginTop:1}}>{r.icon}</span>
+                            <span>{r.text}</span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Chasers */}
+                <div style={{marginBottom:16}}>
+                    <div style={secStyle}>Storm Chasers on X</div>
+                    {chasers.map((c,i)=>(
+                        <a key={i} href={c.url} target="_blank" style={{
+                            display:'flex',alignItems:'center',gap:12,
+                            background:'rgba(7,14,36,.88)',border:'1px solid rgba(100,148,255,.1)',
+                            borderRadius:16,padding:'13px 14px',marginBottom:8,textDecoration:'none'
+                        }}>
+                            <div style={{width:44,height:44,borderRadius:13,background:'rgba(77,148,255,.1)',border:'1px solid rgba(77,148,255,.15)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{c.emoji}</div>
+                            <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:14,fontWeight:700,color:'#fff'}}>{c.name}</div>
+                                <div style={{fontSize:11,color:'#4d94ff',fontWeight:600,marginBottom:1}}>{c.handle}</div>
+                                <div style={{fontSize:11,color:'#8896b8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.desc}</div>
+                            </div>
+                            <span style={{color:'#2d3d60',fontSize:20,flexShrink:0}}>›</span>
+                        </a>
+                    ))}
+                </div>
+
+                {/* Quick Links */}
+                <div style={{marginBottom:16}}>
+                    <div style={secStyle}>Quick Links</div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:9}}>
+                        {links.map((l,i)=>(
+                            <a key={i} href={l.u} target="_blank" style={{
+                                background:'rgba(7,14,36,.88)',border:'1px solid rgba(100,148,255,.1)',
+                                borderRadius:16,padding:'14px 8px',textAlign:'center',textDecoration:'none',display:'block'
+                            }}>
+                                <span style={{fontSize:26,display:'block',marginBottom:6}}>{l.icon}</span>
+                                <span style={{fontSize:11,fontWeight:600,color:'#8896b8'}}>{l.l}</span>
+                            </a>
+                        ))}
+                    </div>
+                </div>
+
+                <div style={{textAlign:'center',fontSize:11,color:'#2d3d60',paddingBottom:8}}>
+                    Data: NWS · Open-Meteo · RainViewer · SPC
+                </div>
+            </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// SETTINGS MODAL
+// ─────────────────────────────────────────────
+function SettingsModal({settings,setSettings,onClose}){
+    const [notifStatus,setNotifStatus] = useState(()=>typeof Notification!=='undefined'?Notification.permission:'unsupported');
+    const ALL_TYPES=['Tornado Emergency','Tornado Warning','Tornado Watch','Severe Thunderstorm Warning','Severe Thunderstorm Watch'];
+
+    function update(key,val){ setSettings(s=>({...s,[key]:val})); }
+
+    function toggleType(t){
+        setSettings(s=>{
+            const has=s.alertTypes.includes(t);
+            return{...s,alertTypes:has?s.alertTypes.filter(x=>x!==t):[...s.alertTypes,t]};
+        });
+    }
+
+    async function requestNotif(){
+        if(typeof Notification==='undefined'){setNotifStatus('unsupported');return;}
+        const perm=await Notification.requestPermission();
+        setNotifStatus(perm);
+        if(perm==='granted') update('notificationsEnabled',true);
+    }
+
+    const typeColors={'Tornado Emergency':'#bf5af2','Tornado Warning':'#ff3d3d','Tornado Watch':'#ff9500',
+        'Severe Thunderstorm Warning':'#ffd60a','Severe Thunderstorm Watch':'#a8e063'};
+
+    return(
+        <div onClick={onClose} style={{
+            position:'fixed',inset:0,zIndex:500,
+            background:'rgba(0,0,0,.65)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',
+            display:'flex',alignItems:'flex-end',justifyContent:'center',
+            animation:'fadeIn .15s ease',pointerEvents:'all'
+        }}>
+            <div onClick={e=>e.stopPropagation()} style={{
+                width:'100%',maxWidth:540,
+                background:'#070e24',
+                border:'1px solid rgba(100,148,255,.15)',
+                borderRadius:'24px 24px 0 0',
+                padding:'0 20px 40px',
+                boxShadow:'0 -8px 48px rgba(0,0,0,.6)',
+                animation:'slideUp .25s cubic-bezier(.4,0,.2,1)'
+            }}>
+                {/* Handle */}
+                <div style={{width:36,height:4,background:'#2d3d60',borderRadius:2,margin:'14px auto 20px'}}/>
+                <div style={{fontSize:13,fontWeight:800,color:'#fff',letterSpacing:1.8,textTransform:'uppercase',marginBottom:22}}>Alert Settings</div>
+
+                {/* Notifications */}
+                <Row label="Browser Notifications" sub="Alerts even when tab is in background">
+                    <Toggle checked={settings.notificationsEnabled} onChange={v=>update('notificationsEnabled',v)}/>
+                </Row>
+                <button onClick={requestNotif} style={{
+                    width:'100%',padding:'11px',
+                    background:'rgba(77,148,255,.07)',border:'1px solid rgba(77,148,255,.2)',
+                    color:'#4d94ff',borderRadius:12,fontSize:13,fontWeight:600,
+                    cursor:'pointer',fontFamily:'inherit',marginBottom:4
+                }}>
+                    {notifStatus==='granted'?'✓ Notifications Enabled':notifStatus==='denied'?'Blocked in browser settings':'Enable Browser Notifications'}
+                </button>
+                <div style={{fontSize:11,color:'#3a4a6a',textAlign:'center',marginBottom:18}}>
+                    {notifStatus==='granted'?'Permission granted':notifStatus==='denied'?'Allow in browser settings to enable':'Permission: not yet requested'}
+                </div>
+
+                {/* Sound */}
+                <Row label="Sound Alerts" sub="Audio alarm when new alerts are detected">
+                    <Toggle checked={settings.soundEnabled} onChange={v=>update('soundEnabled',v)}/>
+                </Row>
+
+                {/* Alert types */}
+                <div style={{fontSize:13,fontWeight:600,color:'#e8eef8',marginTop:6,marginBottom:8}}>Notify me for</div>
+                {ALL_TYPES.map(t=>(
+                    <div key={t} onClick={()=>toggleType(t)} style={{
+                        display:'flex',alignItems:'center',gap:12,padding:'9px 0',cursor:'pointer',
+                        borderBottom:'1px solid rgba(255,255,255,.04)'
+                    }}>
+                        <div style={{
+                            width:22,height:22,borderRadius:7,flexShrink:0,
+                            background:settings.alertTypes.includes(t)?'rgba(77,148,255,.2)':'transparent',
+                            border:settings.alertTypes.includes(t)?'1.5px solid #4d94ff':'1.5px solid #2d3d60',
+                            display:'flex',alignItems:'center',justifyContent:'center',
+                            color:'#4d94ff',fontSize:13,transition:'all .15s'
+                        }}>{settings.alertTypes.includes(t)?'✓':''}</div>
+                        <span style={{fontSize:13,fontWeight:600,color:typeColors[t]||'#e8eef8'}}>{t}</span>
+                    </div>
+                ))}
+
+                {/* Radius */}
+                <div style={{marginTop:18}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
+                        <div>
+                            <div style={{fontSize:13,fontWeight:600,color:'#e8eef8'}}>Alert Radius</div>
+                            <div style={{fontSize:11,color:'#3a4a6a',marginTop:2}}>Only alert within this distance</div>
+                        </div>
+                        <span style={{fontSize:16,fontWeight:800,color:'#4d94ff'}}>{settings.alertRadius} mi</span>
+                    </div>
+                    <input type="range" min={25} max={300} step={25}
+                        value={settings.alertRadius}
+                        onChange={e=>update('alertRadius',+e.target.value)}
+                        style={{width:'100%'}}
+                    />
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#2d3d60',fontWeight:700,marginTop:4}}>
+                        <span>25 mi</span><span>300 mi</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function Row({label,sub,children}){
+    return(
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 0',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+            <div>
+                <div style={{fontSize:13,fontWeight:600,color:'#e8eef8'}}>{label}</div>
+                {sub&&<div style={{fontSize:11,color:'#3a4a6a',marginTop:2}}>{sub}</div>}
+            </div>
+            {children}
+        </div>
+    );
+}
+
+function Toggle({checked,onChange}){
+    return(
+        <div onClick={()=>onChange(!checked)} style={{
+            width:46,height:27,borderRadius:14,flexShrink:0,cursor:'pointer',position:'relative',
+            background:checked?'#4d94ff':'#2d3d60',
+            transition:'background .2s',
+            boxShadow:checked?'0 0 12px rgba(77,148,255,.5)':'none'
+        }}>
+            <div style={{
+                position:'absolute',top:3,left:checked?22:3,
+                width:21,height:21,borderRadius:'50%',background:'#fff',
+                transition:'left .2s',boxShadow:'0 1px 4px rgba(0,0,0,.3)'
+            }}/>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
