@@ -159,6 +159,14 @@ const LEVEL_CFG = {
     advisory: { color:'#ffd60a', glow:'rgba(255,214,10,.3)', label:'ADVISORY',          icon:'⛈️',bg:'linear-gradient(180deg,rgba(40,35,0,.9) 0%,rgba(4,9,26,.0) 60%)' },
     clear:    { color:'#30d158', glow:'rgba(48,209,88,.3)',  label:'ALL CLEAR',         icon:'✅',bg:'linear-gradient(180deg,rgba(0,25,10,.8) 0%,rgba(4,9,26,.0) 60%)' },
 };
+const STATE_NAMES = {
+    'AL':'Alabama','AR':'Arkansas','CO':'Colorado','GA':'Georgia','IA':'Iowa',
+    'IL':'Illinois','IN':'Indiana','KS':'Kansas','KY':'Kentucky','LA':'Louisiana',
+    'MI':'Michigan','MN':'Minnesota','MO':'Missouri','MS':'Mississippi',
+    'NE':'Nebraska','NM':'New Mexico','ND':'North Dakota','OH':'Ohio',
+    'OK':'Oklahoma','SD':'South Dakota','TN':'Tennessee','TX':'Texas',
+    'WI':'Wisconsin','WY':'Wyoming'
+};
 
 // ─────────────────────────────────────────────
 // UTILS
@@ -194,6 +202,14 @@ function statesForLoc(lat,lon){
     if(lat<35&&lon<-95)return'TX,OK,NM,AR,LA,KS';
     return'AL,AR,GA,IL,KS,KY,LA,MO,MS,OK,TN,TX';
 }
+function relTime(s){
+    const d=new Date(s),m=Math.floor((Date.now()-d)/60000);
+    if(isNaN(m)||m<0)return'';
+    if(m<1)return'just now';if(m<60)return`${m}m ago`;
+    const h=Math.floor(m/60);if(h<24)return`${h}h ago`;
+    return`${Math.floor(h/24)}d ago`;
+}
+function stripHtml(h){const d=document.createElement('div');d.innerHTML=h;return(d.textContent||d.innerText||'').replace(/\s+/g,' ').trim();}
 function getChaseRating(cape){
     if(cape>=3000)return{label:'EXTREME',sub:'Exceptional instability — prime chase day',color:'#ff3d3d',icon:'🌪️',gradient:'linear-gradient(135deg,#3d0000,#7a0000)'};
     if(cape>=2000)return{label:'HIGH',   sub:'Strong instability — good chase potential', color:'#ff9500',icon:'⛈️',gradient:'linear-gradient(135deg,#2d1500,#5a3000)'};
@@ -254,6 +270,9 @@ function App(){
         alertTypes: ['Tornado Emergency','Tornado Warning','Tornado Watch','Severe Thunderstorm Warning'],
         alertRadius: 200
     });
+    const [maxVTweets,setMaxVTweets] = useState([]);
+    const [maxVLoading,setMaxVLoading] = useState(false);
+    const [maxVError,setMaxVError]   = useState(null);
 
     useEffect(()=>{initAtmosphere();},[]);
 
@@ -294,9 +313,11 @@ function App(){
         fetchAlerts(loc);
         fetchConditions(loc);
         fetchRadar();
-        // Auto-refresh NWS every 2 minutes
+        fetchMaxVelocityFeed(loc,locName);
+        // Auto-refresh NWS every 2 minutes, MaxVelocity feed every 5 minutes
         const t=setInterval(()=>fetchAlerts(loc),120000);
-        return()=>clearInterval(t);
+        const tf=setInterval(()=>fetchMaxVelocityFeed(loc,locName),300000);
+        return()=>{clearInterval(t);clearInterval(tf);};
     },[locReady]);
 
     async function fetchAlerts(l){
@@ -357,6 +378,42 @@ function App(){
         }catch(e){console.error(e);}
     }
 
+    async function fetchMaxVelocityFeed(l, name){
+        setMaxVLoading(true); setMaxVError(null);
+        try{
+            const st = name.includes(',') ? name.split(',').pop().trim() : '';
+            const nearby = statesForLoc(l.lat,l.lon).split(',').map(s=>s.trim());
+            const nearbyFull = nearby.map(c=>STATE_NAMES[c]).filter(Boolean);
+            const rssUrl = 'https://rsshub.app/twitter/user/MaxVelocityWX';
+            const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
+            const controller = new AbortController();
+            const timer = setTimeout(()=>controller.abort(), 9000);
+            const r = await fetch(proxy, {signal:controller.signal});
+            clearTimeout(timer);
+            if(!r.ok) throw new Error('fetch failed');
+            const txt = await r.text();
+            const xml = new DOMParser().parseFromString(txt,'text/xml');
+            const items = Array.from(xml.querySelectorAll('item'));
+            if(!items.length) throw new Error('empty feed');
+            const tweets = items.slice(0,30).map(item=>{
+                const rawDesc = item.querySelector('description')?.textContent||'';
+                const text = stripHtml(rawDesc) || item.querySelector('title')?.textContent||'';
+                const link = item.querySelector('link')?.textContent||'#';
+                const pubDate = item.querySelector('pubDate')?.textContent||'';
+                const low = text.toLowerCase();
+                const isNearby = nearbyFull.some(n=>low.includes(n.toLowerCase()))
+                              || nearby.some(c=>{const cl=c.toLowerCase();return low.includes(' '+cl+' ')||low.includes(' '+cl+',')||low.includes('('+cl+')')})
+                              || (st && low.includes(st.toLowerCase()));
+                return{text,link,pubDate,isNearby};
+            });
+            setMaxVTweets(tweets);
+        }catch(e){
+            setMaxVError(e.message||'Feed unavailable');
+        }finally{
+            setMaxVLoading(false);
+        }
+    }
+
     async function fetchRadar(){
         try{
             const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');
@@ -401,6 +458,9 @@ function App(){
             </Sheet>
             <Sheet open={tab==='chase'}>
                 <ChaseTab chaseDay={chaseDay} hourly={hourly} conditions={conditions}/>
+            </Sheet>
+            <Sheet open={tab==='feed'}>
+                <FeedTab loc={loc} locName={locName} tweets={maxVTweets} loading={maxVLoading} error={maxVError} onRefresh={()=>fetchMaxVelocityFeed(loc,locName)}/>
             </Sheet>
             <Sheet open={tab==='more'}>
                 <MoreTab loc={loc}/>
@@ -658,7 +718,7 @@ function MapOverlayUI({loc,locName,conditions,alerts,alertLevel,lvl,radarFrames,
                 borderRadius:20,padding:'3px',
                 boxShadow:'0 4px 24px rgba(0,0,0,.4)'
             }}>
-                {[['map','Map'],['alerts','Alerts'],['chase','Chase'],['more','More']].map(([id,label])=>(
+                {[['map','Map'],['alerts','Alerts'],['chase','Chase'],['feed','Feed'],['more','More']].map(([id,label])=>(
                     <button key={id} onClick={()=>setTab(id)} style={{
                         padding:'6px 15px',borderRadius:16,fontSize:12,fontWeight:700,cursor:'pointer',
                         background:tab===id?'rgba(77,148,255,.2)':'transparent',
@@ -1076,6 +1136,170 @@ function MoreTab(){
                     Data: NWS · Open-Meteo · RainViewer · SPC
                 </div>
             </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// TWITTER EMBED (fallback when RSS is unavailable)
+// ─────────────────────────────────────────────
+function TwitterEmbed(){
+    const ref=useRef(null);
+    useEffect(()=>{
+        if(!ref.current)return;
+        const a=document.createElement('a');
+        a.className='twitter-timeline';
+        a.setAttribute('data-theme','dark');
+        a.setAttribute('data-height','420');
+        a.setAttribute('data-dnt','true');
+        a.href='https://twitter.com/MaxVelocityWX';
+        a.textContent='Tweets by MaxVelocityWX';
+        ref.current.appendChild(a);
+        if(window.twttr?.widgets){window.twttr.widgets.load(ref.current);}
+        else{
+            const s=document.createElement('script');
+            s.src='https://platform.twitter.com/widgets.js';
+            s.async=true;
+            document.body.appendChild(s);
+        }
+    },[]);
+    return <div ref={ref}/>;
+}
+
+// ─────────────────────────────────────────────
+// TWEET CARD
+// ─────────────────────────────────────────────
+function TweetCard({tweet,highlight}){
+    const t=tweet.text.trim();
+    if(!t)return null;
+    return(
+        <a href={tweet.link||'#'} target="_blank" style={{
+            display:'block',
+            background:highlight?'rgba(255,149,0,.07)':'rgba(7,14,36,.85)',
+            border:`1px solid ${highlight?'rgba(255,149,0,.28)':'rgba(100,148,255,.09)'}`,
+            borderRadius:16,padding:'13px 14px',marginBottom:8,
+            textDecoration:'none',animation:'fadeUp .3s ease'
+        }}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{fontSize:13,fontWeight:700,color:'#fff'}}>MaxVelocityWX</span>
+                    {highlight&&<span style={{
+                        fontSize:9,fontWeight:800,padding:'2px 7px',borderRadius:10,
+                        background:'rgba(255,149,0,.15)',color:'#ff9500',letterSpacing:.5
+                    }}>NEAR YOU</span>}
+                </div>
+                <span style={{fontSize:10,color:'#3a4a6a',flexShrink:0}}>{relTime(tweet.pubDate)}</span>
+            </div>
+            <div style={{
+                fontSize:12,color:'#c8d4e8',lineHeight:1.65,
+                overflow:'hidden',display:'-webkit-box',
+                WebkitLineClamp:6,WebkitBoxOrient:'vertical'
+            }}>{t}</div>
+        </a>
+    );
+}
+
+// ─────────────────────────────────────────────
+// FEED TAB — MaxVelocityWX
+// ─────────────────────────────────────────────
+function FeedTab({loc,locName,tweets,loading,error,onRefresh}){
+    const nearbyTweets=tweets.filter(t=>t.isNearby);
+    const otherTweets=tweets.filter(t=>!t.isNearby);
+    const secStyle={fontSize:10,fontWeight:700,color:'#4d94ff',textTransform:'uppercase',letterSpacing:2.2,marginBottom:10,padding:'0 2px'};
+    return(
+        <div style={{padding:'16px 16px 32px'}}>
+            {/* Header */}
+            <div style={{
+                borderRadius:18,background:'rgba(7,14,36,.9)',
+                border:'1px solid rgba(100,148,255,.12)',
+                padding:'14px 16px',marginBottom:14,
+                display:'flex',alignItems:'center',justifyContent:'space-between'
+            }}>
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{
+                        width:44,height:44,borderRadius:13,
+                        background:'linear-gradient(135deg,#1a1a2e,#0f3460)',
+                        border:'1px solid rgba(77,148,255,.2)',
+                        display:'flex',alignItems:'center',justifyContent:'center',
+                        fontSize:22,flexShrink:0
+                    }}>⚡</div>
+                    <div>
+                        <div style={{fontSize:14,fontWeight:800,color:'#fff'}}>Max Velocity</div>
+                        <div style={{fontSize:11,color:'#4d94ff',fontWeight:600}}>@MaxVelocityWX</div>
+                        <div style={{fontSize:10,color:'#3a4a6a',marginTop:1}}>📍 {locName}</div>
+                    </div>
+                </div>
+                <button onClick={onRefresh} disabled={loading} style={{
+                    width:34,height:34,borderRadius:10,
+                    background:'rgba(77,148,255,.08)',border:'1px solid rgba(77,148,255,.2)',
+                    color:'#4d94ff',fontSize:16,cursor:'pointer',
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    animation:loading?'spin 1s linear infinite':'none',
+                    opacity:loading?0.5:1
+                }}>↻</button>
+            </div>
+
+            {loading&&!tweets.length&&(
+                <div style={{textAlign:'center',padding:'32px',color:'#3a4a6a',fontSize:13}}>Loading feed…</div>
+            )}
+
+            {/* RSS feed loaded successfully */}
+            {!error&&tweets.length>0&&(
+                <>
+                {nearbyTweets.length>0&&(
+                    <div style={{marginBottom:16}}>
+                        <div style={{...secStyle,color:'#ff9500'}}>⚠ Near Your Area</div>
+                        {nearbyTweets.map((t,i)=>(
+                            <TweetCard key={i} tweet={t} highlight/>
+                        ))}
+                    </div>
+                )}
+                {nearbyTweets.length===0&&(
+                    <div style={{
+                        padding:'12px 14px',borderRadius:14,marginBottom:14,
+                        background:'rgba(48,209,88,.04)',border:'1px solid rgba(48,209,88,.12)',
+                        fontSize:12,color:'#8896b8',lineHeight:1.7
+                    }}>
+                        No posts mentioning states near {locName} right now.
+                    </div>
+                )}
+                {otherTweets.length>0&&(
+                    <div>
+                        <div style={secStyle}>{nearbyTweets.length>0?'Other Posts':'All Posts'}</div>
+                        {otherTweets.map((t,i)=>(
+                            <TweetCard key={i} tweet={t}/>
+                        ))}
+                    </div>
+                )}
+                </>
+            )}
+
+            {/* RSS failed — show embedded timeline */}
+            {error&&(
+                <>
+                <div style={{
+                    padding:'10px 14px',borderRadius:12,marginBottom:12,
+                    background:'rgba(255,149,0,.07)',border:'1px solid rgba(255,149,0,.2)',
+                    fontSize:11,color:'#8896b8',lineHeight:1.6
+                }}>
+                    Live RSS unavailable — showing embedded X timeline. Location filtering requires the feed to load.
+                </div>
+                <div style={{
+                    borderRadius:18,overflow:'hidden',
+                    border:'1px solid rgba(100,148,255,.1)',
+                    minHeight:400,background:'#000'
+                }}>
+                    <TwitterEmbed/>
+                </div>
+                </>
+            )}
+
+            <a href="https://x.com/MaxVelocityWX" target="_blank" style={{
+                display:'block',marginTop:14,textAlign:'center',
+                padding:'11px',borderRadius:14,
+                background:'rgba(77,148,255,.07)',border:'1px solid rgba(77,148,255,.18)',
+                color:'#4d94ff',fontSize:13,fontWeight:600,textDecoration:'none'
+            }}>Open @MaxVelocityWX on X ↗</a>
+        </div>
     );
 }
 
