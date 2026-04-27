@@ -832,8 +832,8 @@ function MapOverlayUI({loc,locName,conditions,alerts,alertLevel,lvl,radarFrames,
             </div>
         )}
 
-        {/* spacer */}
-        <div style={{flex:1}}/>
+        {/* spacer — must be pointer-events:none so map underneath stays interactive */}
+        <div style={{flex:1,pointerEvents:'none'}}/>
 
         {/* ── ZOOM + CENTER BUTTONS (map tab only) ── */}
         {tab==='map' && (
