@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Storm Chase HQ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -298,8 +298,7 @@ function App(){
                     }catch(_){}
                     setLocReady(true);
                 }
-                // Auto-pan map to new position while driving
-                if(window._leafletMap) window._leafletMap.panTo([nl.lat,nl.lon],{animate:true,duration:1});
+                // Map free-roam: don't auto-pan on GPS updates — user navigates freely
             },
             ()=>setLocReady(true),
             {enableHighAccuracy:true,timeout:9000,maximumAge:10000}
@@ -484,6 +483,7 @@ function MapLayer({loc,alerts,radarFrames,radarIdx,mapStyle}){
     const radiusRef    = useRef(null);
     const streetLayerRef = useRef(null);
     const satLayerRef    = useRef(null);
+    const hasFlewRef   = useRef(false);
 
     useEffect(()=>{
         if(mapRef.current)return;
@@ -533,7 +533,8 @@ function MapLayer({loc,alerts,radarFrames,radarIdx,mapStyle}){
         radiusRef.current=L.circle([loc.lat,loc.lon],{
             radius:200*1609.34,color:'rgba(77,148,255,.25)',weight:1.2,fillOpacity:.015,dashArray:'5,9'
         }).addTo(map);
-        map.flyTo([loc.lat,loc.lon],7,{duration:1.6});
+        // Only fly to location on first fix — after that user has free control
+        if(!hasFlewRef.current){ map.flyTo([loc.lat,loc.lon],7,{duration:1.6}); hasFlewRef.current=true; }
     },[loc]);
 
     // Radar layer
@@ -555,9 +556,27 @@ function MapLayer({loc,alerts,radarFrames,radarIdx,mapStyle}){
             if(!a.geometry||(a.geometry.type!=='Polygon'&&a.geometry.type!=='MultiPolygon'))return;
             const col=ALERT_COLOR[a.event]||'#888';
             const lyr=L.geoJSON({type:'Feature',geometry:a.geometry},{
-                style:{color:col,weight:2.5,fillOpacity:.18,fillColor:col}
+                style:{color:col,weight:2.5,fillOpacity:.18,fillColor:col},
+                onEachFeature:(_,layer)=>{
+                    layer.on('mouseover',function(){this.setStyle({fillOpacity:.32,weight:3.5});});
+                    layer.on('mouseout',function(){this.setStyle({fillOpacity:.18,weight:2.5});});
+                }
             });
-            lyr.bindPopup(`<b>${a.event}</b><br>${a.area}<br><small style="color:#8896b8">${a.dist} mi ${a.dir} of you</small>`);
+            const expires=a.expires?new Date(a.expires).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):null;
+            const desc=a.description?(a.description.replace(/\n/g,' ').slice(0,320)+(a.description.length>320?'…':'')):null;
+            const area=a.area.split(';')[0].trim();
+            lyr.bindPopup(`
+                <div style="min-width:230px;max-width:290px;font-family:'Plus Jakarta Sans',sans-serif;line-height:1.5;">
+                    <div style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;background:${col}22;color:${col};margin-bottom:10px;">${a.event}</div>
+                    <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:5px;">${area}</div>
+                    ${a.headline?`<div style="font-size:11px;color:#8896b8;margin-bottom:10px;line-height:1.55;">${a.headline}</div>`:''}
+                    <div style="display:flex;gap:16px;padding:8px 0;border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:${desc?'10px':'0'};">
+                        <div><div style="font-size:9px;color:#3a4a6a;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">DISTANCE</div><div style="font-size:16px;font-weight:800;color:#4d94ff;">${a.dist} mi <span style="font-size:12px;">${a.dir}</span></div></div>
+                        ${expires?`<div><div style="font-size:9px;color:#3a4a6a;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">EXPIRES</div><div style="font-size:13px;font-weight:700;color:#ff9500;">${expires}</div></div>`:''}
+                    </div>
+                    ${desc?`<div style="font-size:10px;color:#8896b8;line-height:1.6;margin-top:2px;">${desc}</div>`:''}
+                </div>
+            `,{maxWidth:300,className:'storm-popup'});
             lyr.addTo(map);
             alertLayersRef.current.push(lyr);
         });
